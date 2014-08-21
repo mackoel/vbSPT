@@ -2,6 +2,7 @@
 
 
 dir0=pwd;
+addpath(genpath([dir0 filesep '.' filesep 'VB4']))
 addpath(genpath([dir0 filesep '.' filesep 'VB3']))
 addpath(genpath([dir0 filesep '.' filesep 'HMMcore']))
 addpath(genpath([dir0 filesep '.' filesep 'Tools']))
