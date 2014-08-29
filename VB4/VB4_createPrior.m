@@ -59,13 +59,13 @@ if(~isfield(opt,'prior_type_locErr'))
 end
 %% localization error prior
 if(strcmp(opt.prior_type_locErr,'mean_strength'))
-    [W.PM.nE,W.PM.cE]=priorLocErr_mean_strength(opt,N);
+    [W.PM.na,W.PM.ca]=priorLocErr_mean_strength(opt,N);
 else
     error(['VB4_createPrior: did not recognize prior_type_locErr : ' opt.prior_type_locErr])
 end
 %% diffusion constant prior
 if(strcmp(opt.prior_type_D,'mean_strength'))
-    [W.PM.nD,W.PM.cD]=priorD_mean_strength(opt,N);
+    [W.PM.ng,W.PM.cg]=priorD_mean_strength(opt,N);
 else
     error(['VB4_createPrior: did not recognize prior_type_D : ' opt.prior_type_D])
 end

@@ -86,12 +86,12 @@ if(length(strength)~=1 || strength<=1)
 end
 
 %% compute M field
-M.nD=ones(1,N)*strength;
-M.cD=4*Ddt*(strength-1);
+M.ng=ones(1,N)*strength;
+M.cg=Ddt*(strength-1);
 
-M.nE=ones(1,N)*strength;
+M.na=ones(1,N)*strength;
 alpha=1./locErr.^2;
-M.cE=alpha./M.nE;
+M.ca=M.na./alpha;
 
 wA=A*strength;
 M.wa=[sum(wA,2)-diag(wA) diag(wA)];

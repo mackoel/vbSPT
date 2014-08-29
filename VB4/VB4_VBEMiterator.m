@@ -28,7 +28,7 @@ function [W,C,F]=VB4_VBEMiterator(W,dat,varargin)
 % Fields in the VB1 tructure W:
 % W.M.wPi;         : initial state
 % W.M.wa,W.M.wB;         : transition counts for s(t) transition matrix
-% W.M.nD; W.M.cD;  : B-distribution for s(t)
+% W.M.ng; W.M.cg;  : B-distribution for s(t)
 % Prior parameters are stored in W.PM
 % E-step parameters are under W.E
 % W.F              : lower bound on the likelihood
@@ -149,10 +149,12 @@ C.W0=W;
 W.T=dat.T;
 W.dim=dat.dim;
 dim=W.dim;
-Ttot=dat.end(end);                  % total number of rows in position array
-trjStart=[1 dat.end(1:end-1)+1];    % indices to start of trajectories
-trjEnd=dat.end-1;                  % indices to last position in each trajectory, 
-                                    % which is also the last hidden state interval
+tau=W.param.blur_tau;
+R  =W.param.blur_R;
+
+%trjStart=[1 dat.end(1:end-1)+1];    % indices to start of trajectories
+%trjEnd  =dat.end-1;                  % indices to last position in each trajectory,
+% which is also the last hidden state interval
 N=size(W.PM.wB,1);
 W.N=N;
 if(~isfield(W.M,'SA')) % add default state aggregation (no aggregation)
@@ -166,10 +168,10 @@ Wm2=struct;Wm1=struct;
 E=struct;
 E.wPi=zeros(1,N);
 E.wA=zeros(N,N);
-E.nD=zeros(1,N);
-E.nE=zeros(1,N);
-E.cD=zeros(1,N);
-E.cE=zeros(1,N);
+E.ng=zeros(1,N);
+E.na=zeros(1,N);
+E.cg=zeros(1,N);
+E.ca=zeros(1,N);
 while(runMore)
     % keep a short history in case something goes wrong...
     Wm2=Wm1;Wm1=W;
@@ -182,40 +184,20 @@ while(runMore)
         wB=W.E.wA.*(1-eye(W.N)).*(W.PM.wB>0); % only allowed transitions included
         W.M.wa =  W.PM.wa  + [sum(wB,2) diag(W.E.wA)];
         W.M.wB =  W.PM.wB  + wB;
-
+        
         % emission model part, with aggregated states
         for a=1:max(W.M.SA)
             % all states in aggregate a gets emission statistics from
             % all states in the same aggregate
             ind=find(a==W.M.SA);
-            W.M.nD(ind)  = W.PM.nD(ind)  + sum(W.E.nD(ind));
-            W.M.cD(ind)  = W.PM.cD(ind)  + sum(W.E.cD(ind));
-        % parameter time averages
-        Mgamma_t=W.Es.pst*(W.M.nD./W.M.cD)';
-        Malpha_t=W.Es.pst*(W.M.nE./W.M.cE)';
-        
-        % construct \nu
-        tau=W.param.blur_tau;
-        nu=zeros(size(W.Etrj.mu));
-        for nt=1:length(W.Etrj.one)
-            MU1=W.Etrj.one(nt);
-            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
-            X1=dat.one(nt);
-            XT=dat.end(nt);
-            T=1+XT-X1; % length of current trajectory
-            for k=1:dim
-                nu(MU1+1:MUT,k)=dat.x(X1+1:XT,k).*Malpha_t(2:T)*(1-tau)...
-                    +dat.x(X1:XT-1,k).*Malpha_t(1:T-1)*tau;
-            end
-            nu(MU1,:)=dat.x(X1,:)*Malpha_t(1)*(1-tau);
-            nu(MUT+1,:)=dat.x(XT,:)*Malpha_t(T)*tau;
-        end
-            W.M.nE(ind)  = W.PM.nE(ind)  + sum(W.E.nE(ind));
-            W.M.cE(ind)  = W.PM.cE(ind)  + sum(W.E.cE(ind));
+            W.M.ng(ind)  = W.PM.ng(ind)  + sum(W.E.ng(ind));
+            W.M.cg(ind)  = W.PM.cg(ind)  + sum(W.E.cg(ind));            
+            W.M.na(ind)  = W.PM.na(ind)  + sum(W.E.na(ind));
+            W.M.ca(ind)  = W.PM.ca(ind)  + sum(W.E.ca(ind));
         end
     end
     % check for problems
-    isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.nD  W.M.cD W.M.nE  W.M.cE]))>1);
+    isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
     if(isNanInf)
         error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step')
     end
@@ -223,9 +205,7 @@ while(runMore)
     if( isfield(W,'Es') && isfield(W,'M') )
         
         % construct \nu
-        tau=W.param.blur_tau;
-        
-        Ttot=sum(dat.T+1);
+        Ttot=sum(dat.T+1);   % total number of steps in hidden trajectory
         nu=zeros(Ttot,dim);
         Ldiag=zeros(Ttot,3); % diagonals in the Lambda matrix
         for nt=1:length(W.Etrj.one)
@@ -236,8 +216,8 @@ while(runMore)
             T=1+XT-X1; % length of current trajectory
             
             % parameter time averages in this trajectory
-            Mgamma_t=W.Es.pst(X1:XT,:)*(W.M.nD./W.M.cD)';
-            Malpha_t=W.Es.pst(X1:XT,:)*(W.M.nE./W.M.cE)';
+            Mgamma_t=W.Es.pst(X1:XT,:)*(W.M.ng./W.M.cg)';
+            Malpha_t=W.Es.pst(X1:XT,:)*(W.M.na./W.M.ca)';
             
             for k=1:dim
                 nu(MU1+1:MUT,k)=dat.x(X1+1:XT,k).*Malpha_t(2:T)*(1-tau)...
@@ -263,12 +243,13 @@ while(runMore)
         W.Etrj.mu=Lambda\nu;
         W.Etrj.CovDiag0=full(diag(Sigma,0));
         W.Etrj.CovDiag1=full(diag(Sigma,1));
-        clear nu Sigma Ldiag Lambda
+        clear nu Sigma Ldiag Lambda MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t 
+        clear Ldiag Lambda Sigma
     end
     %% parameter M-step 2 (to add later)
     
     % check for problems
-    isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.nD  W.M.cD W.M.nE  W.M.cE]))>1);
+    isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
     if(isNanInf)
         error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
     end
@@ -295,8 +276,8 @@ while(runMore)
         
         % assemble time-dependent weights
         lnH1=psi(W.M.wPi)-psi(sum(W.M.wPi)); % weights from initial state probability
-        lnH0=dim/2*(psi(W.M.nD)-log(pi*W.M.cD)+psi(W.M.nE)-log(pi*W.M.cE));   % data-independent term, same for all t
-        lnH =zeros(size(dat.x,1),N);
+        lnH0=dim/2*(psi(W.M.ng)-log(pi*W.M.cg)+psi(W.M.na)-log(pi*W.M.ca));   % data-independent term, same for all t
+        lnH =ones(size(dat.x,1),1)*lnH0;
         
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
@@ -304,71 +285,73 @@ while(runMore)
             X1=dat.one(nt);
             XT=dat.end(nt);
             T=1+XT-X1; % length of current trajectory
-            
-            %%% got so far. Need to elaborate on Eqs 11-13 in the notes,
-            %%% and sum over dimensions as well
-            
+            MU=W.Etrj.mu(MU1:MUT+1,:);
+            X=dat.x(X1:XT,:);
+            Stt  =W.Etrj.CovDiag0(MU1:MUT+1);
+            Sttp1=W.Etrj.CovDiag1(MU1:MUT);
             for j=1:N
-                lnH(X1:XT,j)=lnH0(j)-W.M.nD(j)/W.M.cD(j);
-                lnH(dat.one,j)=lnH(dat.one,j)+lnH1(j);
+                lnH(dat.one(nt),j)=lnH(dat.one(nt),j)+lnH1(j); % start of each trajectory
+                lnH(X1:XT,j)=lnH(X1:XT,j)... % dimension-independent data terms
+                    -dim/2*W.M.ng(j)/W.M.cg(j)*(Stt(1:T)+Stt(2:T+1)-2*Sttp1)...
+                    -dim/2*W.M.na(j)/W.M.ca(j)*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1);
+                %%% got this far: do further algebra simplification using X,MU, etc.
+                for k=1:dim
+                    lnH(X1:XT,j)=lnH(X1:XT,j)...
+                        -1/2*W.M.ng(j)/W.M.cg(j)*(diff(MU(:,k))).^2-1/2*W.M.na(j)/W.M.ca(j)*(X(:,k)-(1-tau)*MU(1:T,k)-tau*MU(2:T+1,k)).^2;
+                end
             end
         end
-        T=W.T;N=W.N;dim=W.dim;
+        lnHMax=max(lnH,[],2);
+        H=zeros(size(lnH));
+        for j=1:N % now we compute the actual pointwise emission contribution
+            H(:,j)=exp(lnH(:,j)-lnHMax);
+        end
+
+        [lnZz,wA,W.Es.pst]=HMM_multiForwardBackward(Q,H,dat.end);
+        % forward sweep normalization constant (same as VB3)
+        lnZQ=(sum(dat.T-2))*lnQmax;
+        lnZq=sum(lnHMax);
         
+        % transition counts
+        W.E.wA=wA;
+        W.E.wPi=sum(W.Es.pst(dat.one,:),1);          % <s_1>=<\delta_{j,s_1}>_{q(s)}            
         
-        
+        % statistics for next parameter update
+        W.E.ng= dim/2*sum(W.Es.pst,1);
+        W.E.na=W.E.ng;
+
+        W.E.cg=zeros(1,N);
+        W.E.ca=zeros(1,N);
+        for nt=1:length(W.Etrj.one)
+            MU1=W.Etrj.one(nt);
+            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            X1=dat.one(nt);
+            XT=dat.end(nt);
+            T=1+XT-X1; % length of current trajectory
+           
+            X     = dat.x(X1:XT,:);
+            MU    = W.Etrj.mu(MU1:MUT+1,:);
+            Stt   = W.Etrj.CovDiag0(MU1:MUT+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUT+1);
+            W.E.cg= W.E.cg+(...
+                        dim/2*( Stt(1:T)+Sttp1(2:T+1)-2*Sttp1(1:T))...
+                         +1/2*sum(diff(MU,[],1).^2,2) ...
+                    )'*W.Es.pst(X1:XT,:);
+            W.E.ca= W.E.ca+(...
+                dim/2*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1(1:T))...
+                 +1/2*sum((X-(1-tau)*MU(1:T,:)-tau*MU(2:T+1,:)).^2,2)...
+                )'*W.Es.pst(X1:XT,:);
+        end
+    else
+        error('VB4_VBEMiterator: not enough model fields to perform the E-step.')
     end
     %% lower bound
 
-    %% old code
-    %% E-steps starts here
     
-
-    %% trial emission priobability q(s,t)
-    % variational pointwise contributions, notation as in ML1 notes
-    % except perhaps an off-by-one difference in time index
-        
-    %trjStart=[1 dat.end(1:end-1)+1];
-    %trjEnds=dat.end;
     
-    % we compute log(H) first, and then exponentiate
-    lnH1=psi(W.M.wPi)-psi(sum(W.M.wPi)); % initial state probability
-    lnH0=dim/2*(psi(WMn)-log(pi*WMc));   % data-independent term, same for all t
-    lnH  =zeros(length(dat.dx2),N); % data-dependent terms
-    for j=1:N
-        lnH(:,j)=lnH0(j)-W.M.nD(j)/W.M.cD(j)*dat.dx2;        
-        lnH(trjStart,j)=lnH(trjStart,j)+lnH1(j);
-    end
-    lnHMax=max(lnH,[],2);
-    H=zeros(length(dat.dx2),N);
-    for j=1:N % now we compute the actual pointwise emission contribution
-        H(:,j)=exp(lnH(:,j)-lnHMax);
-    end 
-    %% forward sweep  (depends only on Q and H)
-    [lnZz,E.wA,pst]=HMM_multiForwardBackward(Q,H,trjEnd);
-    % forward sweep normalization constant (same as VB3)
-    lnZQ=(sum(dat.T-2))*lnQmax;
-    lnZq=sum(lnHMax);
-
-    % compute quantities for next M-step
-    %% transition counts
-    E.wPi=sum(pst(trjStart,:),1);          % <s_1>=<\delta_{j,s_1}>_{q(s)}    
-    % E.wA: already done!
-    %% for the emission models
-    E.nD=dim/2*sum(pst,1);   % sum_{t=2}^T p(s_t)
-    E.cD=zeros(1,N);             % sum_{t=2}^T P(s(t)=j,c(t)=1).*dx(t)^2
-    for j=1:N
-        E.cD(j)=sum(pst(:,j).*dat.dx2);
-    end
-    W.E=E;
-    %% check for problems
-    %isNanInf=(sum(~isfinite([E(m).nD E(m).cD]))>1);
-    %if(isNanInf)
-    %    error('VB2_VBEMiter:Efield_not_finite','Nan/Inf generated in VBE step')
-    %end
 
     % check for problems
-    isNanInf=(sum(~isfinite([E.nD E.cD]))>1);
+    isNanInf=(sum(~isfinite([W.E.ng W.E.cg W.E.na W.E.ca]))>1);
     if(isNanInf)
         error('VB2_VBEMiter:Efield_not_finite','Nan/Inf generated in VBE step')
     end
@@ -427,10 +410,10 @@ while(runMore)
         error('VB3_VBEM: F not finite (KL_pi)')
     end    
     % KL divergence of emission parameters
-    KL_gj= W.PM.nD.*log(W.M.cD./W.PM.cD)...
-        -W.M.nD.*(1-W.PM.cD./W.M.cD)...
-        -gammaln(W.M.nD)+gammaln(W.PM.nD)...
-        +(W.M.nD-W.PM.nD).*psi(W.M.nD);
+    KL_gj= W.PM.ng.*log(W.M.cg./W.PM.cg)...
+        -W.M.ng.*(1-W.PM.cg./W.M.cg)...
+        -gammaln(W.M.ng)+gammaln(W.PM.ng)...
+        +(W.M.ng-W.PM.ng).*psi(W.M.ng);
     % remove duplicate terms in each aggregate
     for a=1:max(W.M.SA)
        ind=find(a==W.M.SA);
@@ -540,12 +523,12 @@ while(runMore)
         clear wB0 eyeB B2 wa0
         
         % emission parameters
-        W.est.gMean=W.M.nD./W.M.cD;
-        W.est.gMode=(W.M.nD-1)./W.M.cD;
-        W.est.gStd=sqrt(W.M.nD./W.M.cD.^2); % sqrt(Var(g))
-        W.est.DdtMean=W.M.cD/4./(W.M.nD-1);
-        W.est.DdtMode=W.M.cD/4./(W.M.nD+1);
-        W.est.Ddtstd=W.M.cD/4./(W.M.nD-1)./sqrt(W.M.nD-2);
+        W.est.gMean=W.M.ng./W.M.cg;
+        W.est.gMode=(W.M.ng-1)./W.M.cg;
+        W.est.gStd=sqrt(W.M.ng./W.M.cg.^2); % sqrt(Var(g))
+        W.est.DdtMean=W.M.cg/4./(W.M.ng-1);
+        W.est.DdtMode=W.M.cg/4./(W.M.ng+1);
+        W.est.Ddtstd=W.M.cg/4./(W.M.ng-1)./sqrt(W.M.ng-2);
 
         % occupation        
         W.est.Ttot=sum(pst,1);
