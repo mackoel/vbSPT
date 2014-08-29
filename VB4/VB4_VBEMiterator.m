@@ -165,13 +165,13 @@ runMore=true;
 C.exitStatus='';
 Wm2=struct;Wm1=struct;
 %% iterate
-E=struct;
-E.wPi=zeros(1,N);
-E.wA=zeros(N,N);
-E.ng=zeros(1,N);
-E.na=zeros(1,N);
-E.cg=zeros(1,N);
-E.ca=zeros(1,N);
+%E=struct;
+%E.wPi=zeros(1,N);
+%E.wA=zeros(N,N);
+%E.ng=zeros(1,N);
+%E.na=zeros(1,N);
+%E.cg=zeros(1,N);
+%E.ca=zeros(1,N);
 while(runMore)
     % keep a short history in case something goes wrong...
     Wm2=Wm1;Wm1=W;
@@ -202,7 +202,7 @@ while(runMore)
         error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step')
     end
     %% trajectory E-step : W.Es + W.M  -> W.Etrj
-    if( isfield(W,'Es') && isfield(W,'M') )
+    if( isfield(W,'Es') && isfield(W,'M'))% && false)
         
         % construct \nu
         Ttot=sum(dat.T+1);   % total number of steps in hidden trajectory
@@ -227,31 +227,69 @@ while(runMore)
             nu(MUT+1,:)=dat.x(XT,:)*Malpha_t(T)*tau;
             
             % diagonal elements
-            Ldiag(MU1,2)      =Mgamma_j(1)+(1-tau)^2*Malhpa(1);
+            Ldiag(MU1,2)      =Mgamma_t(1)+(1-tau)^2*Malpha_t(1);
             Ldiag(MU1+1:MUT,2)=Mgamma_t(2:T)+Malpha_t(2:T)*(1-tau)^2 ...
                 +Mgamma_t(1:T-1)+Malpha_t(1:T-1)*tau^2;
             Ldiag(MUT+1,2)    = Mgamma_t(T)+Malpha_t(T)*tau^2;
             % off-diagonal elements
             Ldiag(MU1:MUT,1)    =Malpha_t*tau*(1-tau)-Mgamma_t;
             Ldiag(MU1+1:MUT+1,3)=Malpha_t*tau*(1-tau)-Mgamma_t;
+            
+            
         end
         % compute \Sigma(t,t), \Sigma(t,t+1)
-        Lambda=spdiags(Ldiag,-1:1,T+1,T+1);
+        Lambda=spdiags(Ldiag,-1:1,Ttot,Ttot);
         Sigma=inv(Lambda);
+        
+        rMax=abs(diag(Lambda));        
+        W.Etrj.logDetLambda=sum(log(rMax))+log(det(spdiags(1./rMax,0,Ttot,Ttot)*Lambda));
         
         % collect averages for hidden trajectory
         W.Etrj.mu=Lambda\nu;
         W.Etrj.CovDiag0=full(diag(Sigma,0));
-        W.Etrj.CovDiag1=full(diag(Sigma,1));
+        W.Etrj.CovDiag1=full(diag(Sigma,1)+diag(Sigma,-1))/2; % possible better to average of rounding errors?
         clear nu Sigma Ldiag Lambda MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t 
-        clear Ldiag Lambda Sigma
+        clear Ldiag Lambda Sigma logDetLambda
     end
-    %% parameter M-step 2 (to add later)
     
-    % check for problems
-    isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
-    if(isNanInf)
-        error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
+    %% partial parameter M-step 2 
+    if(isfield(W,'Es'))
+        % only diffusion constant and detection errors can be updated here
+        W.E.cg=zeros(1,N);
+        W.E.ca=zeros(1,N);
+        for nt=1:length(W.Etrj.one)
+            MU1=W.Etrj.one(nt);
+            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            X1=dat.one(nt);
+            XT=dat.end(nt);
+            T=1+XT-X1; % length of current trajectory
+            
+            X     = dat.x(X1:XT,:);
+            MU    = W.Etrj.mu(MU1:MUT+1,:);
+            Stt   = W.Etrj.CovDiag0(MU1:MUT+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUT);
+            W.E.cg= W.E.cg+(...
+                dim/2*( Stt(1:T)+Stt(2:T+1)-2*Sttp1(1:T))...
+                +1/2*sum(diff(MU,[],1).^2,2) ...
+                )'*W.Es.pst(X1:XT,:);
+            W.E.ca= W.E.ca+(...
+                dim/2*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1(1:T))...
+                +1/2*sum((X-(1-tau)*MU(1:T,:)-tau*MU(2:T+1,:)).^2,2)...
+                )'*W.Es.pst(X1:XT,:);
+        end
+        for a=1:max(W.M.SA)
+            % all states in aggregate a gets emission statistics from
+            % all states in the same aggregate
+            ind=find(a==W.M.SA);
+            W.M.cg(ind)  = W.PM.cg(ind)  + sum(W.E.cg(ind));
+            W.M.ca(ind)  = W.PM.ca(ind)  + sum(W.E.ca(ind));
+        end
+        
+        % check for problems
+        isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
+        if(isNanInf)
+            error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
+        end
     end
     %% hidden state E-step, and complain/crash if it cannot be done
     if( isfield(W,'M') && isfield(W,'Etrj'))
@@ -290,11 +328,10 @@ while(runMore)
             Stt  =W.Etrj.CovDiag0(MU1:MUT+1);
             Sttp1=W.Etrj.CovDiag1(MU1:MUT);
             for j=1:N
-                lnH(dat.one(nt),j)=lnH(dat.one(nt),j)+lnH1(j); % start of each trajectory
+                lnH(dat.one(nt),j)=lnH(X1,j)+lnH1(j); % start of each trajectory
                 lnH(X1:XT,j)=lnH(X1:XT,j)... % dimension-independent data terms
                     -dim/2*W.M.ng(j)/W.M.cg(j)*(Stt(1:T)+Stt(2:T+1)-2*Sttp1)...
                     -dim/2*W.M.na(j)/W.M.ca(j)*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1);
-                %%% got this far: do further algebra simplification using X,MU, etc.
                 for k=1:dim
                     lnH(X1:XT,j)=lnH(X1:XT,j)...
                         -1/2*W.M.ng(j)/W.M.cg(j)*(diff(MU(:,k))).^2-1/2*W.M.na(j)/W.M.ca(j)*(X(:,k)-(1-tau)*MU(1:T,k)-tau*MU(2:T+1,k)).^2;
@@ -332,9 +369,9 @@ while(runMore)
             X     = dat.x(X1:XT,:);
             MU    = W.Etrj.mu(MU1:MUT+1,:);
             Stt   = W.Etrj.CovDiag0(MU1:MUT+1);
-            Sttp1 = W.Etrj.CovDiag1(MU1:MUT+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUT);
             W.E.cg= W.E.cg+(...
-                        dim/2*( Stt(1:T)+Sttp1(2:T+1)-2*Sttp1(1:T))...
+                        dim/2*( Stt(1:T)+Stt(2:T+1)-2*Sttp1(1:T))...
                          +1/2*sum(diff(MU,[],1).^2,2) ...
                     )'*W.Es.pst(X1:XT,:);
             W.E.ca= W.E.ca+(...
@@ -345,24 +382,31 @@ while(runMore)
     else
         error('VB4_VBEMiterator: not enough model fields to perform the E-step.')
     end
-    %% lower bound
-
-    
-    
-
-    % check for problems
+        % check for problems
     isNanInf=(sum(~isfinite([W.E.ng W.E.cg W.E.na W.E.ca]))>1);
     if(isNanInf)
-        error('VB2_VBEMiter:Efield_not_finite','Nan/Inf generated in VBE step')
+        error('VB4_VBEMiter:Efield_not_finite','Nan/Inf generated in VBEs step')
     end
-    %% assemble free energy
-    F=lnZQ+lnZq+lnZz;
+    %% lower bound
+    % hidden trajectory
+    if(isfield(W.Etrj,'logDetLambda'))
+        W.Fterms.trj=dim/2*sum(dat.T+1)*(1+log(2*pi))-dim/2*W.Etrj.logDetLambda;
+        F=W.Fterms.trj;
+    else
+        F=0;
+        W.Fterms.trj=0;
+    end
+    % hidden states
+    F=F+lnZQ+lnZq+lnZz;
+    W.Fterms.lnZQ=lnZQ;
+    W.Fterms.lnZq=lnZq;
+    W.Fterms.lnZz=lnZz;
     if(~isfinite(F))
-        error('VB3_VBEM: F not finite (lnZ)')
+        error('VB4_VBEM: F not finite (lnZ)')
     end    
+    
     % KL divergence of transition probabilities of s(t), new
-    % parameterization
-    KL_a=zeros(W.N,1);
+    % parameterization. Not changed from VB3 -> VB4
     if(W.N>1) % a is only defined if N>1
         wa0=sum(W.M.wa,2);
         ua0=sum(W.PM.wa,2);
@@ -373,10 +417,10 @@ while(runMore)
             +gammaln(W.M.wa(:,2))-gammaln(W.PM.wa(:,2))...
             -(W.M.wa(:,2)-W.PM.wa(:,2)).*psi(W.M.wa(:,2)));
     end
-    W.Fterms.aterms=-KL_a;
+    W.Fterms.aTerms=-KL_a;
     F=F-sum(KL_a);
     if(~isfinite(F))
-        error('VB3_VBEM: F not finite (KL_a)')
+        error('VB4_VBEM: F not finite (KL_a)')
     end
     clear wa0 ua0;    
     % jump probabilities
@@ -395,7 +439,7 @@ while(runMore)
     W.Fterms.Bterms=-KL_B;
     F=F-sum(KL_B);
     if(~isfinite(F))
-        error('VB3_VBEM: F not finite (KL_B)')
+        error('VB4_VBEM: F not finite (KL_B)')
     end    
     clear wA0 uA0 ind;
     % KL divergence of initial state probability 
@@ -414,24 +458,26 @@ while(runMore)
         -W.M.ng.*(1-W.PM.cg./W.M.cg)...
         -gammaln(W.M.ng)+gammaln(W.PM.ng)...
         +(W.M.ng-W.PM.ng).*psi(W.M.ng);
+    KL_aj= W.PM.na.*log(W.M.ca./W.PM.ca)...
+        -W.M.na.*(1-W.PM.ca./W.M.ca)...
+        -gammaln(W.M.na)+gammaln(W.PM.na)...
+        +(W.M.na-W.PM.na).*psi(W.M.na);
     % remove duplicate terms in each aggregate
     for a=1:max(W.M.SA)
        ind=find(a==W.M.SA);
        KL_gj(ind(2:end))=0;
-    end
+       KL_aj(ind(2:end))=0;
+    end    
     W.Fterms.gTerms=-KL_gj;
-    F=F-sum(KL_gj);
+    W.Fterms.alphaTerms=-KL_aj;
+    F=F-sum(KL_gj)-sum(KL_aj);
     if(~isfinite(F))
-        error('VB3_VBEM: F not finite (KL_gj)')
+        error('VB4_VBEM: F not finite (KL_gj,KL_aj)')
     end
     %% assembly of the free energy
-    W.F=F;    
-    W.Fterms.lnZQ=lnZQ;
-    W.Fterms.lnZq=lnZq;
-    W.Fterms.lnZz=lnZz;
-            
+    W.F=F;                
     if(~isfinite(W.F))
-        error('VB_VBEMiter:F_not_finite','Nan/Inf generated in lower bound')
+        error('VB4_VBEMiter:F_not_finite','Nan/Inf generated in lower bound')
     end
     %catch me
     %% catch potential errors
@@ -447,10 +493,10 @@ while(runMore)
     if(isfield(Wm1,'F')) % then we can check convergence
         %% converge criterion in terms of relative changes in F and parameter values
         if(~isfinite(W.F)) % check for problem
-            crashfile=sprintf('VB1_VBEMiterator_NaNInf_%f.mat',now);
+            crashfile=sprintf('VB4_VBEMiterator_NaNInf_%f.mat',now);
             save(crashfile);
             runMore=false;
-            error(['VB1_VBEMiterator found W.F=NaN or Inf. Saving state to ' crashfile])
+            error(['VB4_VBEMiterator found W.F=NaN or Inf. Saving state to ' crashfile])
             C.exitStatus=[C.exitStatus 'W.F=NaN or Inf. '];
             pause(0.5)
         end
@@ -526,12 +572,17 @@ while(runMore)
         W.est.gMean=W.M.ng./W.M.cg;
         W.est.gMode=(W.M.ng-1)./W.M.cg;
         W.est.gStd=sqrt(W.M.ng./W.M.cg.^2); % sqrt(Var(g))
-        W.est.DdtMean=W.M.cg/4./(W.M.ng-1);
-        W.est.DdtMode=W.M.cg/4./(W.M.ng+1);
-        W.est.Ddtstd=W.M.cg/4./(W.M.ng-1)./sqrt(W.M.ng-2);
+        W.est.DMean=W.M.cg/2./(W.M.ng-1)/W.param.timestep;
+        W.est.DMode=W.M.cg/2./(W.M.ng+1)/W.param.timestep;
+        
+        W.est.alphaMean=W.M.na./W.M.ca;
+        W.est.alphaMode=(W.M.na-1)./W.M.ca;
+        W.est.alphaStd=sqrt(W.M.na./W.M.ca.^2); % sqrt(Var(g))
+        W.est.sig2Mean=W.M.ca./(W.M.na-1)-(tau*(1-tau)-R)*W.M.cg./(W.M.ng-1);
+        %W.est.Ddtstd=W.M.cg/2./(W.M.ng-1)./sqrt(W.M.ng-2);
 
         % occupation        
-        W.est.Ttot=sum(pst,1);
+        W.est.Ttot=sum(W.Es.pst,1);
         W.est.Ptot=W.est.Ttot/sum(W.est.Ttot);
 
         W.Fterms.Fterms=[ W.Fterms.lnZQ+W.Fterms.lnZq+W.Fterms.lnZz -sum(KL_a) -sum(KL_B) -sum(KL_pi) -sum(KL_gj)];
@@ -539,16 +590,15 @@ while(runMore)
 
         
         
-        W.est.Ts=sum(pst,1);
-        W.est.Ps=W.est.Ts/sum(W.est.Ts);
+        W.est.Ps=W.est.Ttot/sum(W.est.Ttot);
         %% potentially demanding estimates (only if asked)
         if(do_estimates)
             % extract trajectory estimates
             Wviterbi=uint8(HMM_multiViterbi_log(lnQ,lnH,trjEnd)); % Viterbi path
-            [~,WsMaxP]=max(pst,[],2);
+            [~,WsMaxP]=max(W.Es.pst,[],2);
             
             for kk=1:length(trjStart)
-                W.est2.pst{kk}    =           pst(trjStart(kk):trjEnd(kk),:);
+                W.est2.pst{kk}    =      W.Es.pst(trjStart(kk):trjEnd(kk),:);
                 W.est2.H{kk}      =             H(trjStart(kk):trjEnd(kk),:);
                 W.est2.lnH{kk}    =           lnH(trjStart(kk):trjEnd(kk),:);
                 W.est2.lnHMax{kk} =        lnHMax(trjStart(kk):trjEnd(kk),:);
@@ -562,7 +612,7 @@ while(runMore)
             W.est2.Ts=zeros(length(trjStart),N);
             W.est2.Ps=zeros(length(trjStart),N);
             for m=1:length(trjStart)
-                W.est2.Ts(m,:)=sum(pst(trjStart(m):trjEnd(m),:),1); % time spent in each state
+                W.est2.Ts(m,:)=sum(W.Es.pst(trjStart(m):trjEnd(m),:),1); % time spent in each state
                 W.est2.Ps(m,:)=W.est2.Ts(m,:)/sum(W.est2.Ts(m,:));
             end
             
