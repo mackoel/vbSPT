@@ -48,10 +48,14 @@ else
     error(['Not a valid input, aborting VB4_createPrior']);
 end
 W=VB3_createPrior(opt,N);
+W.PM=rmfield(W.PM,{'n','c'}); % obsolete fields from VB3 model
+
 %% start of actual code
 W.param.blur_R=opt.blur_R;
 W.param.blur_tau=opt.blur_tau;
+W.param.blur_beta=opt.blur_tau*(1-opt.blur_tau)-opt.blur_R;
 W.param.timestep=opt.timestep;
+
 %% default prior type choices for VB4
 if(~isfield(opt,'prior_type_locErr'))
     warning('VB4_createPrior: prior_type_locErr not specified. Using default : mean_strengt')

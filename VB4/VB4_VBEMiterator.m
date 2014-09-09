@@ -239,10 +239,24 @@ while(runMore)
         end
         % compute \Sigma(t,t), \Sigma(t,t+1)
         Lambda=spdiags(Ldiag,-1:1,Ttot,Ttot);
-        Sigma=inv(Lambda);
-        
-        rMax=abs(diag(Lambda));        
-        W.Etrj.logDetLambda=sum(log(rMax))+log(det(spdiags(1./rMax,0,Ttot,Ttot)*Lambda));
+        % invert Lambda block by block
+        % Sigma1=inv(Lambda);
+        Sigma=spalloc(Ttot,Ttot,3*Ttot);
+        logDetLambda=0;
+        for nt=1:length(W.Etrj.one)
+            Lind=W.Etrj.one(nt):W.Etrj.end(nt);
+            Lambda_nt=Lambda(Lind,Lind);
+            Sigma(Lind,Lind)=inv(Lambda_nt);
+            
+            rMax=abs(diag(Lambda_nt));
+            T_nt=length(Lind);
+            logDetLambda=logDetLambda+sum(log(rMax))+log(det(spdiags(1./rMax,0,T_nt,T_nt)*Lambda_nt));
+        end        
+        % determinant ln|Lambda| with scaling to 
+        %rMax=abs(diag(Lambda));        
+        %W.Etrj.logDetLambda=sum(log(rMax))+log(det(spdiags(1./rMax,0,Ttot,Ttot)*Lambda));
+        W.Etrj.logDetLambda=logDetLambda;
+        clear Lind T_nt rMax Lambda_nt logDetLambda
         
         % collect averages for hidden trajectory
         W.Etrj.mu=Lambda\nu;
@@ -416,9 +430,11 @@ while(runMore)
             -(W.M.wa(:,1)-W.PM.wa(:,1)).*psi(W.M.wa(:,1))...
             +gammaln(W.M.wa(:,2))-gammaln(W.PM.wa(:,2))...
             -(W.M.wa(:,2)-W.PM.wa(:,2)).*psi(W.M.wa(:,2)));
+        W.Fterms.aTerms=-KL_a;
+        F=F-sum(KL_a);
+    else
+       W.Fterms.aTerms=0; 
     end
-    W.Fterms.aTerms=-KL_a;
-    F=F-sum(KL_a);
     if(~isfinite(F))
         error('VB4_VBEM: F not finite (KL_a)')
     end
@@ -578,7 +594,7 @@ while(runMore)
         W.est.alphaMean=W.M.na./W.M.ca;
         W.est.alphaMode=(W.M.na-1)./W.M.ca;
         W.est.alphaStd=sqrt(W.M.na./W.M.ca.^2); % sqrt(Var(g))
-        W.est.sig2Mean=W.M.ca./(W.M.na-1)-(tau*(1-tau)-R)*W.M.cg./(W.M.ng-1);
+        W.est.sig2Mean=W.M.ca./(W.M.na-1)-W.param.blur_beta*W.M.cg./(W.M.ng-1);
         %W.est.Ddtstd=W.M.cg/2./(W.M.ng-1)./sqrt(W.M.ng-2);
 
         % occupation        
