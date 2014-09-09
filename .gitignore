@@ -1,4 +1,5 @@
 ## generic files to ignore
+startup.m
 *~
 *.lock
 *.DS_Store

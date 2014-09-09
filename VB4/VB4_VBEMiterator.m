@@ -421,6 +421,7 @@ while(runMore)
     
     % KL divergence of transition probabilities of s(t), new
     % parameterization. Not changed from VB3 -> VB4
+    KL_a=zeros(W.N,1);    
     if(W.N>1) % a is only defined if N>1
         wa0=sum(W.M.wa,2);
         ua0=sum(W.PM.wa,2);
@@ -430,11 +431,9 @@ while(runMore)
             -(W.M.wa(:,1)-W.PM.wa(:,1)).*psi(W.M.wa(:,1))...
             +gammaln(W.M.wa(:,2))-gammaln(W.PM.wa(:,2))...
             -(W.M.wa(:,2)-W.PM.wa(:,2)).*psi(W.M.wa(:,2)));
-        W.Fterms.aTerms=-KL_a;
-        F=F-sum(KL_a);
-    else
-       W.Fterms.aTerms=0; 
     end
+    W.Fterms.aTerms=-KL_a;
+    F=F-sum(KL_a);
     if(~isfinite(F))
         error('VB4_VBEM: F not finite (KL_a)')
     end
