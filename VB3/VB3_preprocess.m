@@ -1,5 +1,5 @@
-function dat=SPT_preprocess(runinput,dim)
-% dat=SPT_preprocess(runinput,dim)
+function dat=VB3_preprocess(runinput,dim)
+% dat=VB3_preprocess(runinput,dim)
 %
 % assemble single particle diffusion data in a form for fast EM iterations
 %
