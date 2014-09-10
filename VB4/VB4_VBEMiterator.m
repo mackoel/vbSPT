@@ -462,11 +462,11 @@ while(runMore)
     % KL divergence of initial state probability 
     u0Pi=sum(W.PM.wPi);
     w0Pi=sum(W.M.wPi);
-    KL_pi=gammaln(w0Pi)+gammaln(u0Pi)...
+    KL_pi=gammaln(w0Pi)-gammaln(u0Pi)...
           +sum((gammaln(W.PM.wPi)-gammaln(W.M.wPi))...
                +(W.M.wPi-W.PM.wPi).*(psi(W.M.wPi)-psi(w0Pi)));
     W.Fterms.piTerms=-KL_pi;
-    F=F-sum(KL_pi);
+    F=F-KL_pi;
     if(~isfinite(F))
         error('VB3_VBEM: F not finite (KL_pi)')
     end    
