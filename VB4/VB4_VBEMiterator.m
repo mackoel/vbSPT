@@ -267,6 +267,7 @@ while(runMore)
     end
     
     %% partial parameter M-step 2 
+    if(0)
     if(isfield(W,'Es'))
         % only diffusion constant and detection errors can be updated here
         W.E.cg=zeros(1,N);
@@ -304,6 +305,7 @@ while(runMore)
         if(isNanInf)
             error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
         end
+    end
     end
     %% hidden state E-step, and complain/crash if it cannot be done
     if( isfield(W,'M') && isfield(W,'Etrj'))

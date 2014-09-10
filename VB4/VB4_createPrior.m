@@ -84,8 +84,8 @@ E0=opt.prior_locErr;                     % prior mean of dynamic localization er
 En=opt.prior_locErrStrength;             % prior strength of dynamic localization error
 
 % each emission variable gets same strength independent of model size
-m=En*ones(1,N);
-h=E0^2*m;
+m=En*ones(1,N)+1;
+h=E0^2*(m-1);
 end
 
 function [n,c]=priorD_mean_strength(opt,N)
@@ -98,7 +98,7 @@ D0=opt.prior_D;                     % prior diffusion constant
 Dn=opt.prior_Dstrength;             % strength of diffusion constant prior
 
 % each emission variable gets same strength independent of model size
-n=Dn*ones(1,N);
-c=2*D0*timestep*n; % match <gamma>=<1/2Ddt> 
+n=Dn*ones(1,N)+1;
+c=2*D0*timestep*(n-1); % match <gamma>=<1/2Ddt> 
 
 end
