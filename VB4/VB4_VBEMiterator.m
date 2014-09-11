@@ -237,33 +237,71 @@ while(runMore)
             
             
         end
+        
         % compute \Sigma(t,t), \Sigma(t,t+1)
-        Lambda=spdiags(Ldiag,-1:1,Ttot,Ttot);
+        %Lambda=spdiags(Ldiag,-1:1,Ttot,Ttot);
         % invert Lambda block by block
         % Sigma1=inv(Lambda);
-        Sigma=spalloc(Ttot,Ttot,3*Ttot);
+        %Sigma=spalloc(Ttot,Ttot,sum((W.Etrj.end-W.Etrj.one+1).^2));
         logDetLambda=0;
+        
+        mu=zeros(size(nu));
+        CovDiag0=zeros(size(nu,1),1);
+        CovDiag1=zeros(size(nu,1)-1,1);
+        
         for nt=1:length(W.Etrj.one)
+            tic
             Lind=W.Etrj.one(nt):W.Etrj.end(nt);
-            Lambda_nt=Lambda(Lind,Lind);
-            Sigma(Lind,Lind)=inv(Lambda_nt);
+            
+            Ldiag_nt=Ldiag(Lind,1:2);
+            Lambda_nt=zeros(size(Ldiag_nt,1),size(Ldiag_nt,1));
+            for kk=1:size(Ldiag_nt,1)-1
+                Lambda_nt(kk,kk+1)=Ldiag_nt(kk,1);
+            end
+            Lambda_nt=Lambda_nt+Lambda_nt'+diag(Ldiag_nt(:,2));
+            
+            Sigma_nt=inv(Lambda_nt);
+            nu_nt=nu(Lind,:);
+            
+            mu_nt=Lambda_nt\nu_nt;
+            CovDiag0_nt=(diag(Sigma_nt,0));
+            CovDiag1_nt=(diag(Sigma_nt,1)+diag(Sigma_nt,-1))/2;
+            
+            %Sigma(Lind,Lind)=Sigma_nt;
+            
+            mu(Lind,:)=mu_nt;
+            CovDiag0(Lind,1)=CovDiag0_nt;
+            CovDiag1(Lind(1:end-1),1)=CovDiag1_nt;
+            
             
             rMax=abs(diag(Lambda_nt));
             T_nt=length(Lind);
-            logDetLambda=logDetLambda+sum(log(rMax))+log(det(spdiags(1./rMax,0,T_nt,T_nt)*Lambda_nt));
-        end        
-        % determinant ln|Lambda| with scaling to 
-        %rMax=abs(diag(Lambda));        
+            logDetLambda=logDetLambda+sum(log(rMax))+log(det(diag(1./rMax)*Lambda_nt));
+            
+            %tCycle(nt)=toc;
+            %if(mod(nt,100)==0)
+            %    disp([int2str([nt length(W.Etrj.one)]) ...
+            %        ', t_cycle = ' num2str(tCycle(nt))])
+            %end
+        end
+        tic
+        % determinant ln|Lambda| with scaling to
+        %rMax=abs(diag(Lambda));
         %W.Etrj.logDetLambda=sum(log(rMax))+log(det(spdiags(1./rMax,0,Ttot,Ttot)*Lambda));
         W.Etrj.logDetLambda=logDetLambda;
         clear Lind T_nt rMax Lambda_nt logDetLambda
         
         % collect averages for hidden trajectory
-        W.Etrj.mu=Lambda\nu;
-        W.Etrj.CovDiag0=full(diag(Sigma,0));
-        W.Etrj.CovDiag1=full(diag(Sigma,1)+diag(Sigma,-1))/2; % possible better to average of rounding errors?
-        clear nu Sigma Ldiag Lambda MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t 
-        clear Ldiag Lambda Sigma logDetLambda
+        %W.Etrj.mu=Lambda\nu;
+        %W.Etrj.CovDiag0=full(diag(Sigma,0));
+        %W.Etrj.CovDiag1=full(diag(Sigma,1)+diag(Sigma,-1))/2; % possible better to average of rounding errors?
+        W.Etrj.mu=mu;
+        W.Etrj.CovDiag0=CovDiag0;
+        W.Etrj.CovDiag1=CovDiag1; % possible better to average of rounding errors?
+        
+        clear mu Covdiag1 CovDiag0 mu_nt Covdiag1_nt CovDiag0_nt Sigma_nt nu_nt Ldiag_nt
+        clear nu Ldiag Lambda_nt MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t
+        clear Ldiag Sigma logDetLambda
     end
     
     %% partial parameter M-step 2 
