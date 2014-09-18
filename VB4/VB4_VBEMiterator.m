@@ -24,6 +24,8 @@ function [W,C,F]=VB4_VBEMiterator(W,dat,varargin)
 % 'outputLevel', {0,1,2}
 %                0: no output, 1: display convergence, not progress (default),
 %                2: display convergence measures for each iteration
+% '2Msteps'    : Perform a second M-step between trajectory and hidden
+%                states updates.
 %
 % Fields in the VB1 tructure W:
 % W.M.wPi;         : initial state
@@ -77,6 +79,7 @@ do_estimates=false;
 do_slim=false;
 displayProgress=false;
 displayExit=true;
+do_Mstep2=false;
 
 if(nargin>2)        % then parse options
     k=1;            % argument counter
@@ -126,6 +129,9 @@ if(nargin>2)        % then parse options
                 end
             end
             k=k+2;
+        elseif(strcmpi(option,'2Msteps'))
+            do_Mstep2=true;
+            k=k+1;
         else
             error(['VB1_VBEMiter: option ' option ' not recognized.'])
         end
@@ -200,6 +206,17 @@ while(runMore)
     isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
     if(isNanInf)
         error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step')
+    end
+    
+    % check for approximation problems from ignoring the upper bound on
+    % \alpha.
+    if(W.param.blur_beta>0)
+        wPeak=W.M.ng.*W.M.ca./W.M.cg/W.param.blur_beta;
+        %wPeak/W.M.na
+        if(sum(gammainc(wPeak,W.M.na,'upper')>0)>0)
+            warning(['questionable alpha/gamma independence. Safety factor(s): ' ...
+            num2str(wPeak./W.M.na.*(1-10./sqrt(W.M.ng))./(1+10./sqrt(W.M.na)))])
+        end
     end
     %% trajectory E-step : W.Es + W.M  -> W.Etrj
     if( isfield(W,'Es') && isfield(W,'M'))% && false)
@@ -304,10 +321,8 @@ while(runMore)
         clear Ldiag Sigma logDetLambda
     end
     
-    %% partial parameter M-step 2 
-    if(0)
-    if(isfield(W,'Es'))
-        % only diffusion constant and detection errors can be updated here
+    %% partial parameter M-step 2
+    if(do_Mstep2 && isfield(W,'Etrj'))
         W.E.cg=zeros(1,N);
         W.E.ca=zeros(1,N);
         for nt=1:length(W.Etrj.one)
@@ -330,6 +345,7 @@ while(runMore)
                 +1/2*sum((X-(1-tau)*MU(1:T,:)-tau*MU(2:T+1,:)).^2,2)...
                 )'*W.Es.pst(X1:XT,:);
         end
+        
         for a=1:max(W.M.SA)
             % all states in aggregate a gets emission statistics from
             % all states in the same aggregate
@@ -343,7 +359,6 @@ while(runMore)
         if(isNanInf)
             error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
         end
-    end
     end
     %% hidden state E-step, and complain/crash if it cannot be done
     if( isfield(W,'M') && isfield(W,'Etrj'))
