@@ -214,7 +214,7 @@ while(runMore)
         wPeak=W.M.ng.*W.M.ca./W.M.cg/W.param.blur_beta;
         %wPeak/W.M.na
         if(sum(gammainc(wPeak,W.M.na,'upper')>0)>0)
-            warning(['questionable alpha/gamma independence. Safety factor(s): ' ...
+            warning(['alpha/gamma correlation warning. Safety factor(s): ' ...
             num2str(wPeak./W.M.na.*(1-10./sqrt(W.M.ng))./(1+10./sqrt(W.M.na)))])
         end
     end
