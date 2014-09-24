@@ -128,7 +128,11 @@ for state=1:W.N
         vBox=[v0G v0G v1G v1G v0G];
         plot(lBox,vBox,'r')
         
+<<<<<<< HEAD
         title(['q(\lambda,\nu), state ' int2str(state) ])
+=======
+        title(['ln q, state ' int2str(state) ])
+>>>>>>> 8536dd31fe154e513f64368ce78e0f0b004feff8
         xlabel('\lambda')
         ylabel('\nu')
         colorbar
