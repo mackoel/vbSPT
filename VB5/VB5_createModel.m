@@ -1,11 +1,9 @@
 function M=VB5_createModel(Ddt,locErr,A,p0,strength,W0)
 % function M=VB5_createModel(Ddt,locErr,A,p0,strength,W0)
 % 
-% Constructs a new M-field M to a VB5 model, based on given parameters and
+% Adds a new M-field M to a VB5 model W0, based on given parameters and
 % strength. Model variational parameters are chosen so that the vatiational
-% mean values coincide with the input parameters. If an input model W0 is
-% given, the M field is instead added to that model after some
-% compatibility checks, and the whole model struct returned.
+% mean values coincide with the input parameters.
 %
 % Ddt: vector of diffusion constants * timestep
 % locErr: vector of localization errors for each state
@@ -13,10 +11,10 @@ function M=VB5_createModel(Ddt,locErr,A,p0,strength,W0)
 % p0 : initial state probability (default = approx. stationary state of A)
 % strength : strength parameter, corresponding to the number of counts
 %            that go into each parameter distribution (default = 1e4). 
-% W0 : Optional starting model, for example created by VB5_createPrior,
-%      with an existing PM field of matching dimensionality.
+% W0 : Starting model, for example created by VB5_createPrior, with an
+%      existing PM field of matching dimensionality.
 %
-
+% M.L. 2014-09-25
 
 %% copyright notice
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -44,7 +42,6 @@ function M=VB5_createModel(Ddt,locErr,A,p0,strength,W0)
 %
 % You should have received a copy of the GNU General Public License along
 % with this program. If not, see <http://www.gnu.org/licenses/>.
-
 %% check M-field input parameters and size compatibility    
 % check transition matrix
 lambda=sort(eig(A));
@@ -89,9 +86,10 @@ end
 M.nl=ones(1,N)*strength;
 M.cl=Ddt*(strength-1);
 
-
-tau=W.param.blur_tau;
-beta=tau*(1-tau)-W.param.blur_R;
+% if this method is to work without an input model, then a beta value must
+% be supplied instead.
+tau=W0.param.blur_tau;
+beta=tau*(1-tau)-W0.param.blur_R;
 M.na=ones(1,N)*strength;
 M.ca=M.na.*(2*Ddt*beta+locErr^2);
 
@@ -101,7 +99,9 @@ M.wB=wA-diag(diag(wA));
 
 M.wPi=p0*strength;
 
-% check size match, and add M-field to W0 if OK
+% check size match, and add M-field to W0 if OK. These checks are somewhat
+% redundant, but will be useful if the method is extended to do without an
+% input model.
 if(~exist('W0','var'))
     return
 elseif(~isstruct(W0) || ~isfield(W0,'PM'))
