@@ -1,7 +1,7 @@
-function [alpha,ln_alpha,lambda_inv,ln_lambda,lambda,nu,sqrtNu]=...
+function [alpha,ln_alpha,lambda_inv,ln_lambda,KL_lv,lambda,nu,sqrtNu]=...
     VB5_ag_vl_expectations(W,showWarning,showAll)
 %%
-% [alpha,ln_alpha,lambda_inv,ln_lambda,lambda,nu,sqrtNu]=...
+% [alpha,ln_alpha,lambda_inv,ln_lambda,KL_lv,lambda,nu,sqrtNu]=...
 %                             VB5_ag_vl_expectations(W,showWarning,showAll)
 %
 % Numerical evaluation of expectation values of the variational
@@ -47,7 +47,7 @@ for state=1:W.N
     lv1=abs(lv1);
     l_max=lv1(1);
     v_max=lv1(2);
-    logLref=logQ(l_max,v_max);
+    logQref=logQ(l_max,v_max);
     
     % Gaussian approximation of integration boundaries
     hessianMatrix=[d2logQdl2(l_max,v_max) d2logQdldv(l_max,v_max);
@@ -72,9 +72,10 @@ for state=1:W.N
     %% unscaled integration     
     tic
     % normalization constant
-    zFun=@(ll,vv)(exp(logQ(ll,vv)-logLref));
+    zFun=@(ll,vv)(exp(logQ(ll,vv)-logQref));
     Zlv=integral2(zFun,l0G,l1G,v0G,v1G,'relTol',1e-9);
-
+    lnZ=log(Zlv)+logQref; % full normalization constant for exp(logQ).
+    
     % <alpha>
     funAlpha=@(ll,vv)(1./(vv+b*ll));
     aFun=@(ll,vv)(funAlpha(ll,vv).*zFun(ll,vv));
@@ -108,11 +109,15 @@ for state=1:W.N
         sqrtNu(state)=integral2(sigFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
     end
     tInt=toc;
+    % Kullback-Leibler terms
+    KL_lv(state)=-lnZ+gammaln(n0l)+gammaln(n0v)-n0l*log(c0l)-n0v*log(c0v)...
+            -(nl-n0l)*ln_lambda(state)-(cl-c0l)*lambda_inv(state)...
+            +na*ln_alpha-ca*alpha;
     %% plot log density in lambda-v plane
     if(showDistribution)
         ll=linspace(0.9*l0G,1.1*l1G,1e3);
         vv=linspace(0.0*v0G,1.1*v1G,1e3);
-        logLref=logQ(l_max,v_max);
+        logQref=logQ(l_max,v_max);
         
         [LL,VV]=meshgrid(ll,vv);
         
@@ -120,8 +125,8 @@ for state=1:W.N
         clf
         hold on
         
-        %contourf(LL,VV,exp(logQ(LL,VV)-logLref),logspace(-3,0,16),'edgecolor','none')
-        contourf(LL,VV,exp(logQ(LL,VV)-logLref),'edgecolor','none')
+        %contourf(LL,VV,exp(logQ(LL,VV)-logQref),logspace(-3,0,16),'edgecolor','none')
+        contourf(LL,VV,exp(logQ(LL,VV)-logQref),'edgecolor','none')
         plot(l_max,v_max,'k*')
         
         lBox=[l0G l1G l1G l0G l0G];
@@ -170,7 +175,7 @@ lvBoxxy=[funL(xyBox(1,:),xyBox(2,:));funV(xyBox(1,:),xyBox(2,:))];
 figure(3)
 clf
 hold on
-contourf(XX,YY,exp(logQ(LL,VV)-logLref),logspace(-5,0,16),'edgecolor','none')
+contourf(XX,YY,exp(logQ(LL,VV)-logQref),logspace(-5,0,16),'edgecolor','none')
 plot(xyBoxlv(1,:),xyBoxlv(2,:),'sr-')
 plot(xyBox(1,:),xyBox(2,:),'ob-')
 
@@ -253,7 +258,7 @@ dlv=det(T); % area scale factor, cancels in all expectation values
 
 tic
 % normalization constant
-zFun=@(xx,yy)(exp(logQ(funL(xx,yy),funV(xx,yy))-logLref));
+zFun=@(xx,yy)(exp(logQ(funL(xx,yy),funV(xx,yy))-logQref));
 Zxy=integral2(zFun,xL,xU,funYL,funYU,'relTol',1e-9);
 
 % <alpha>
