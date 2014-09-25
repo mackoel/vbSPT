@@ -1,5 +1,5 @@
-function [W,C,F]=VB4_VBEMiterator(W,dat,varargin)
-%% [W,C,F]=VB4_VBEMiterator(W,dat,varargin)
+function [W,C,F]=VB5_VBEMiterator(W,dat,varargin)
+%% [W,C,F]=VB5_VBEMiterator(W,dat,varargin)
 %
 % Perform VBEM iterations, on the VB structure W, with data (structure)
 % X, until convergence. This version accepts d-dimensional data (T by d
@@ -27,17 +27,6 @@ function [W,C,F]=VB4_VBEMiterator(W,dat,varargin)
 % '2Msteps'    : Perform a second M-step between trajectory and hidden
 %                states updates.
 %
-% Fields in the VB1 tructure W:
-% W.M.wPi;         : initial state
-% W.M.wa,W.M.wB;         : transition counts for s(t) transition matrix
-% W.M.ng; W.M.cg;  : B-distribution for s(t)
-% Prior parameters are stored in W.PM
-% E-step parameters are under W.E
-% W.F              : lower bound on the likelihood
-% W.est            : various useful estimates that do not take up a lot of
-%                    memory
-% W.est2           : more memory intensensive estimates
-%
 % This function uses the mex file HMM_multiForwardBackward.mexXXX from
 % HMMcore for the computer intensive nner loops, where XXX is a platform
 % dependent extension. Please refer to HMMcore/compile_code.m to
@@ -45,7 +34,7 @@ function [W,C,F]=VB4_VBEMiterator(W,dat,varargin)
 
 %% copyright notice
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% VB4_VBEMiterator, variational EM iterations in the vbSPT package
+% VB5_VBEMiterator, variational EM iterations in the vbSPT package
 % =========================================================================
 % 
 % Copyright (C) 2014 Martin Lindén
@@ -205,7 +194,7 @@ while(runMore)
     % check for problems
     isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
     if(isNanInf)
-        error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step')
+        error('VB5_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step')
     end
     
     % check for approximation problems from ignoring the upper bound on
@@ -357,7 +346,7 @@ while(runMore)
         % check for problems
         isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) W.M.ng  W.M.cg W.M.na  W.M.ca]))>1);
         if(isNanInf)
-            error('VB4_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
+            error('VB5_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step 2')
         end
     end
     %% hidden state E-step, and complain/crash if it cannot be done
@@ -449,12 +438,12 @@ while(runMore)
                 )'*W.Es.pst(X1:XT,:);
         end
     else
-        error('VB4_VBEMiterator: not enough model fields to perform the E-step.')
+        error('VB5_VBEMiterator: not enough model fields to perform the E-step.')
     end
         % check for problems
     isNanInf=(sum(~isfinite([W.E.ng W.E.cg W.E.na W.E.ca]))>1);
     if(isNanInf)
-        error('VB4_VBEMiter:Efield_not_finite','Nan/Inf generated in VBEs step')
+        error('VB5_VBEMiter:Efield_not_finite','Nan/Inf generated in VBEs step')
     end
     %% lower bound
     % hidden trajectory
@@ -471,11 +460,11 @@ while(runMore)
     W.Fterms.lnZq=lnZq;
     W.Fterms.lnZz=lnZz;
     if(~isfinite(F))
-        error('VB4_VBEM: F not finite (lnZ)')
+        error('VB5_VBEM: F not finite (lnZ)')
     end    
     
     % KL divergence of transition probabilities of s(t), new
-    % parameterization. Not changed from VB3 -> VB4
+    % parameterization. Not changed from VB3 -> VB5
     KL_a=zeros(W.N,1);    
     if(W.N>1) % a is only defined if N>1
         wa0=sum(W.M.wa,2);
@@ -490,7 +479,7 @@ while(runMore)
     W.Fterms.aTerms=-KL_a;
     F=F-sum(KL_a);
     if(~isfinite(F))
-        error('VB4_VBEM: F not finite (KL_a)')
+        error('VB5_VBEM: F not finite (KL_a)')
     end
     clear wa0 ua0;    
     % jump probabilities
@@ -509,7 +498,7 @@ while(runMore)
     W.Fterms.Bterms=-KL_B;
     F=F-sum(KL_B);
     if(~isfinite(F))
-        error('VB4_VBEM: F not finite (KL_B)')
+        error('VB5_VBEM: F not finite (KL_B)')
     end    
     clear wA0 uA0 ind;
     % KL divergence of initial state probability 
@@ -542,12 +531,12 @@ while(runMore)
     W.Fterms.alphaTerms=-KL_aj;
     F=F-sum(KL_gj)-sum(KL_aj);
     if(~isfinite(F))
-        error('VB4_VBEM: F not finite (KL_gj,KL_aj)')
+        error('VB5_VBEM: F not finite (KL_gj,KL_aj)')
     end
     %% assembly of the free energy
     W.F=F;                
     if(~isfinite(W.F))
-        error('VB4_VBEMiter:F_not_finite','Nan/Inf generated in lower bound')
+        error('VB5_VBEMiter:F_not_finite','Nan/Inf generated in lower bound')
     end
     %catch me
     %% catch potential errors
@@ -563,10 +552,10 @@ while(runMore)
     if(isfield(Wm1,'F')) % then we can check convergence
         %% converge criterion in terms of relative changes in F and parameter values
         if(~isfinite(W.F)) % check for problem
-            crashfile=sprintf('VB4_VBEMiterator_NaNInf_%f.mat',now);
+            crashfile=sprintf('VB5_VBEMiterator_NaNInf_%f.mat',now);
             save(crashfile);
             runMore=false;
-            error(['VB4_VBEMiterator found W.F=NaN or Inf. Saving state to ' crashfile])
+            error(['VB5_VBEMiterator found W.F=NaN or Inf. Saving state to ' crashfile])
             C.exitStatus=[C.exitStatus 'W.F=NaN or Inf. '];
             pause(0.5)
         end
