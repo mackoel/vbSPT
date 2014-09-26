@@ -14,7 +14,7 @@ if(~exist('showAll','var') || isempty(showAll))
     showAll=false;
 end
 % global parameters
-b=W.param.blur_beta;
+b=W.param.blur_tau*(1-W.param.blur_tau)-W.param.blur_R;
 % tolerance parameters
 Nstd_safety=10; % number of estimated standard deviations to include in integrals
 relTol=1e-8;    % relative integration tolerance
