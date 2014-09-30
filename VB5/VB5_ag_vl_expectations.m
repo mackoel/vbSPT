@@ -12,12 +12,11 @@ if(~exist('showWarning','var') || isempty(showWarning))
 end
 if(~exist('showAll','var') || isempty(showAll))
     showAll=false;
-end
-% global parameters
+end% global parameters
 b=W.param.blur_tau*(1-W.param.blur_tau)-W.param.blur_R;
 % tolerance parameters
-Nstd_safety=10; % number of estimated standard deviations to include in integrals
-relTol=1e-8;    % relative integration tolerance
+Nstd_safety=5; % number of estimated standard deviations to include in integrals
+relTol=1e-10;    % relative integration tolerance
 %%
 for state=1:W.N
     showDistribution=showAll;
@@ -67,7 +66,7 @@ for state=1:W.N
         warning(['possible bad scaling: s_max/s_min = '...
             num2str(sqrt(cond(covarianceMatrix))) ...
             ', corrcoeff = ' num2str(corrLV) ])
-        showDistribution=true;
+        showDistribution=showWarning;
     end
     %% unscaled integration     
     tic

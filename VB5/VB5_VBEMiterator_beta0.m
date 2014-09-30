@@ -141,6 +141,9 @@ dim=W.dim;
 tau=W.param.blur_tau;
 R  =W.param.blur_R;
 beta=tau*(1-tau)-R;
+if(beta~=0)
+    warning('Non-zero beta not formally applicable to this algorithm. Numbers take on different meaning!')
+end
 if(beta<0)
    error('VB5_VBEMiterator: inconsistent blur parameters ( tau*(1-tau)-R<0 =')
 end
@@ -183,10 +186,7 @@ while(runMore)
         % warning for potentiall badly conditioned parameters
         %%% really, only W.Epar.lambda_inv and W.Epar.alpha are used before
         %%% next M-step. Some time could be save omitting other integrals.
-        [W.Epar.alpha,~,W.Epar.lambda_inv]=VB5_ag_vl_expectations(W,false,false);
-        if(beta==0)
-            [E0par.alpha,~,E0par.lambda_inv]=VB5_ag_vl_expectations_beta0(W);            
-        end
+        [W.Epar.alpha,~,W.Epar.lambda_inv]=VB5_ag_vl_expectations_beta0(W);
         
         % check for problems
         isNanInf=(sum(~isfinite([W.M.wPi W.M.wa(1:end) W.M.wB(1:end) ...
@@ -332,11 +332,7 @@ while(runMore)
     % numerical evaluation of parameter expectation values, show
     % warning for potentiall badly conditioned parameters
     [W.Epar.alpha,W.Epar.ln_alpha,W.Epar.lambda_inv,W.Epar.ln_lambda,...
-        W.Epar.KL_lv]=VB5_ag_vl_expectations(W,false,false);
-    if(beta==0)
-    [E0par.alpha,E0par.ln_alpha,E0par.lambda_inv,E0par.ln_lambda,...
-        E0par.KL_lv]=VB5_ag_vl_expectations_beta0(W);        
-    end
+        W.Epar.KL_lv]=VB5_ag_vl_expectations_beta0(W);
     % check for problems
     isNanInf=(sum(~isfinite([W.Epar.alpha W.Epar.ln_alpha ...
         W.Epar.lambda_inv W.Epar.ln_lambda W.Epar.KL_lv]))>1);
@@ -439,20 +435,6 @@ while(runMore)
     isNanInf=(sum(~isfinite([W.E.nl W.E.cl W.E.na W.E.ca]))>1);
     if(isNanInf)
         error('VB5_VBEMiter:Efield_not_finite','Nan/Inf generated in VBEs step')
-    end
-    %% if beta=0, compare numerical and analytical average
-    if(beta==0)
-        disp('--------------------------------------------------------')
-        fc=fieldnames(E0par);
-        for kc=1:length(fc)
-            fname='                 :';
-            fname(1:length(fc{kc}))=fc{kc};
-            %disp([fc{kc} ' num : ' num2str(W.Epar.(fc{kc}),4)])
-            %disp([fc{kc} ' xact: ' num2str( E0par.(fc{kc}),4)])
-             disp([fname ' eRel: ' num2str( W.Epar.(fc{kc})./E0par.(fc{kc})-1,4)])
-        end
-        disp('--------------------------------------------------------')
-        %keyboard
     end
     %% lower bound
     % hidden trajectory
@@ -638,7 +620,7 @@ while(runMore)
 
         % emission parameters %%% remains to do
         [~,~,~,~,~,lambda,W.est.sig2Mean,W.est.sigMean]=...
-            VB5_ag_vl_expectations(W,false,false);
+            VB5_ag_vl_expectations_beta0(W);
         W.est.DMean=lambda/2/W.param.timestep;
         %%%W.est.DMode=W.M.cg/2./(W.M.ng+1)/W.param.timestep;
         
