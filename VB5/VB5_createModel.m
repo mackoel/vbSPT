@@ -16,6 +16,8 @@ function M=VB5_createModel(Ddt,locErr,A,p0,strength,W0)
 %
 % M.L. 2014-09-25
 
+warning('VB5_createModel superseeded by VB5_newParameters')
+
 %% copyright notice
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % VB5_createModel, creates a VB5 model from parameters and strengths.

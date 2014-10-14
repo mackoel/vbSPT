@@ -677,7 +677,7 @@ end
 %% slim down the model, on request, by deleting the bulky E-field
 %%% ML: maybe some other bulky fields should go as well?
 if(do_slim)
-    W=rmfield(W,'E');
+    W=rmfield(W,{'E','Etrj'});
     W.est=rmfield(W.est,{'Ts','Ps'});
 end
 %% auxiliary functions

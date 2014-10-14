@@ -4,7 +4,7 @@ function W0=VB5_trjInit_dat(dat,W0,muStd,muCov)
 % Creates a trajectory field Etrj based on the VB5 data dat, that can be
 % used as an initial guess. If an input model is given, a model is returned
 % with the new Etrj field added. The data object dat can be created with
-% VB4_preprocess.
+% VB5_preprocess.
 %
 % muStd : initial standard deviation of hidden trajectory (default 0).
 % muCov : initial nearest-neightbour covariance of hidden trajectory,
@@ -12,13 +12,12 @@ function W0=VB5_trjInit_dat(dat,W0,muStd,muCov)
 
 %% copyright notice
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% VB5_trjInit_dat, creates an initial VB4 hidden trajectory. Part of the
+% VB5_trjInit_dat, creates an initial VB5 hidden trajectory. Part of the
 % vbSPT suite.
 % =========================================================================
 % 
-% Copyright (C) 2014 Martin Lindén
-% 
-% E-mail: bmelinden@gmail.com
+% Copyright (C) 2014 Martin Lindén, bmelinden@gmail.com
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This program is free software: you can redistribute it and/or modify it
 % under the terms of the GNU General Public License as published by the

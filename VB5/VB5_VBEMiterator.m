@@ -106,7 +106,7 @@ if(nargin>2)        % then parse options
             if(~isempty(varargin{k+1}))
                 outputLevel=varargin{k+1};
                 if(~isnumeric(outputLevel) || ~ismember(outputLevel,[0 1 2]))
-                    error('VB1_VBEMiter: outpuLevel option must be followed by 0, 1, or 2.')
+                    error('VB1_VBEMiter: outputLevel option must be followed by 0, 1, or 2.')
                 end
                 if(outputLevel==0) % adjust output settings
                     displayExit=false;
