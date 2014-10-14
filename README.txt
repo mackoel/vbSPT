@@ -20,7 +20,7 @@
  warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See
  the GNU General Public License for more details.
  
- If you use vbSPT please cite: "Person F,Lindén M, Unoson C, Elf J,
+ If you use vbSPT please cite: "Person F, Lindén M, Unoson C, Elf J,
  Extracting intracellular reaction rates from single molecule tracking
  data, Nature Methods 10, 265–269 (2013). doi:10.1038/nmeth.2367"
  

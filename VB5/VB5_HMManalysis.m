@@ -175,8 +175,7 @@ parfor iter=1:opt.runs
                 if(w.N>1)
                     tx0=tic;
                     %disp(['Iter ' int2str(iter) ': simple removal did not help. Trying to add some extra transitions'])
-                    w=VB5_createPrior(opt,w0.N-1);
-                    w.M=VB5_removeState(w0,h(k));
+                    w=VB5_removeState(w0,h(k),opt);
                     od=max(max(w.M.wB-w.PM.wB)); % largest off-diagonal element
                     w.M.wB=od*(1-eye(w.N));
                     if(isfield(w,'E')) % make sure that the new M field is used
