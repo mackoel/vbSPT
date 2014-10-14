@@ -56,12 +56,14 @@ clear ind0;
 
 
 % fields that do not need reordering
-W1.dim= W.dim;
-W1.N  = W.N;
-W1.T  = W.T;
-W1.F  =W.F;
+W1.dim  = W.dim;
+W1.N    = W.N;
+W1.T    = W.T;
+W1.param= W.param;
+W1.F    = W.F;
+W1.Etrj = W.Etrj;
 % reorder some fields
-f={'PM','M','est'};
+f={'PM','M','est','Epar'};
 %g={'wPi','n','c'};
 for a=1:length(f)    
     F=W.(f{a});

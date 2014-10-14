@@ -1,13 +1,13 @@
-function bootstrap=VB3_bsResult(runinput, varargin)
-% res=VB3_bsResult(runinputfile,option1,option2,...)
+function bootstrap=VB5_bsResult(runinput, varargin)
+% res=VB5_bsResult(runinputfile,option1,option2,...)
 %
 % Run bootstrapping on the HMM analysis result specified in the runinputfile 
 % which should be in the current directory.
 % It is also possible to use an options structure, e.g., from
-% opt=VB3_getOptions(runinputfile) instead. Note that bootstrapping 
+% opt=VB5_getOptions(runinputfile) instead. Note that bootstrapping 
 % parameters have to be set in the options struct or runinputfile before 
 % running this function.
-% If called from VB3_HMManalysis as part of the initial
+% If called from VB5_HMManalysis as part of the initial
 % analysis 'HMM_analysis' should exist as an option
 %
 % options:
@@ -19,12 +19,11 @@ function bootstrap=VB3_bsResult(runinput, varargin)
 
 %% copyright notice
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% VB3_bsResult, bootstrap analysis in the VB3 suite of vbSPT 
+% VB5_bsResult, bootstrap analysis in the VB5 suite of vbSPT
 % =========================================================================
 % 
-% Copyright (C) 2013 Martin Lindén and Fredrik Persson
-% 
-% E-mail: bmelinden@gmail.com, freddie.persson@gmail.com
+% Copyright (C) 2014 Martin Lindén, bmelinden@gmail.com
+%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % This program is free software: you can redistribute it and/or modify it
 % under the terms of the GNU General Public License as published by the
@@ -51,7 +50,7 @@ tbootstrap=tic;
 % if an existing file, generate options structure
 if(ischar(runinput) && exist(runinput, 'file')==2)
     runinputfile = runinput;
-    opt=VB3_getOptions(runinputfile);
+    opt=VB5_getOptions(runinputfile);
     disp(['Read runinput file ' runinputfile])
     % if an option struct, read in the runinputfilename
 elseif(isstruct(runinput))
@@ -62,7 +61,7 @@ else
     error(['Not a valid input, aborting bootstrapping']);
 end
 %% load data
-X=VB3_readData(opt);
+X=VB5_readData(opt);
 res=load(opt.outputfile);
 
 Wbest = res.Wbest;
@@ -119,7 +118,7 @@ if(opt.bootstrapNum>0)
     end
     if(opt.fullBootstrap)
         % bootstrap the best global model
-        [wbs,Wmean,Wstd]=VB3_bootstrap(Wbest,X,opt,opt.bootstrapNum);
+        [wbs,Wmean,Wstd]=VB5_bootstrap(Wbest,X,opt,opt.bootstrapNum);
         res.bootstrap.wbs=wbs;     % this field will take up most of the storage.
         res.bootstrap.Wmean=Wmean;
         res.bootstrap.Wstd=Wstd;
@@ -137,7 +136,7 @@ if(opt.bootstrapNum>0)
                 dFmean(k)=0;
                 dFstd(k)=0;
             elseif(WbestN{k}.F>-inf && abs(WbestN{k}.N-Wbest.N)<=2)
-                [W,Wm,Ws]=VB3_bootstrap(WbestN{k},X,opt,opt.bootstrapNum,wbs); %VB3_bootstrap is parallelized
+                [W,Wm,Ws]=VB5_bootstrap(WbestN{k},X,opt,opt.bootstrapNum,wbs); %VB5_bootstrap is parallelized
                 WmeanN(k)=Wm;
                 WstdN(k) =Ws;
                 dF=[W.F]'-[wbs.F]';
@@ -169,7 +168,7 @@ if(opt.bootstrapNum>0)
         
     else
         % only bootstrap best global model
-        [wbs,Wmean,Wstd]=VB3_bootstrap(Wbest,X,opt,opt.bootstrapNum);
+        [wbs,Wmean,Wstd]=VB5_bootstrap(Wbest,X,opt,opt.bootstrapNum);
         res.bootstrap.wbs=wbs;     % this field will take up most of the storage.
         res.bootstrap.Wmean=Wmean;
         res.bootstrap.Wstd=Wstd;

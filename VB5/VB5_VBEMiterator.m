@@ -106,7 +106,7 @@ if(nargin>2)        % then parse options
             if(~isempty(varargin{k+1}))
                 outputLevel=varargin{k+1};
                 if(~isnumeric(outputLevel) || ~ismember(outputLevel,[0 1 2]))
-                    error('VB1_VBEMiter: outputLevel option must be followed by 0, 1, or 2.')
+                    error('VB5_VBEMiter: outputLevel option must be followed by 0, 1, or 2.')
                 end
                 if(outputLevel==0) % adjust output settings
                     displayExit=false;
@@ -144,9 +144,6 @@ beta=tau*(1-tau)-R;
 if(beta<0)
    error('VB5_VBEMiterator: inconsistent blur parameters ( tau*(1-tau)-R<0 =')
 end
-%trjStart=[1 dat.end(1:end-1)+1];    % indices to start of trajectories
-%trjEnd  =dat.end-1;                  % indices to last position in each trajectory,
-% which is also the last hidden state interval
 N=size(W.PM.wB,1);
 W.N=N;
 if(~isfield(W.M,'SA')) % add default state aggregation (no aggregation)
@@ -654,25 +651,24 @@ while(runMore)
         %% potentially demanding estimates (only if asked)
         if(do_estimates)
             % extract trajectory estimates
-            Wviterbi=uint8(HMM_multiViterbi_log(lnQ,lnH,trjEnd)); % Viterbi path
+            Wviterbi=uint8(HMM_multiViterbi_log(lnQ,lnH,dat.end)); % Viterbi path
             [~,WsMaxP]=max(W.Es.pst,[],2);
             
-            for kk=1:length(trjStart)
-                W.est2.pst{kk}    =      W.Es.pst(trjStart(kk):trjEnd(kk),:);
-                W.est2.H{kk}      =             H(trjStart(kk):trjEnd(kk),:);
-                W.est2.lnH{kk}    =           lnH(trjStart(kk):trjEnd(kk),:);
-                W.est2.lnHMax{kk} =        lnHMax(trjStart(kk):trjEnd(kk),:);
-                W.est2.sMaxP{kk}  =uint8(  WsMaxP(trjStart(kk):trjEnd(kk)));
-                W.est2.viterbi{kk}=uint8(Wviterbi(trjStart(kk):trjEnd(kk)));
-                %W.est2.start=trjstarts;
-                %W.est2.end=trjEnds;
+            for kk=1:length(dat.one)
+                W.est2.pst{kk}    =      W.Es.pst(dat.one(kk):dat.end(kk),:);
+                W.est2.H{kk}      =             H(dat.one(kk):dat.end(kk),:);
+                W.est2.lnH{kk}    =           lnH(dat.one(kk):dat.end(kk),:);
+                W.est2.lnHMax{kk} =        lnHMax(dat.one(kk):dat.end(kk),:);
+                W.est2.sMaxP{kk}  =uint8(  WsMaxP(dat.one(kk):dat.end(kk)));
+                W.est2.viterbi{kk}=uint8(Wviterbi(dat.one(kk):dat.end(kk)));
+
             end
             clear Wviterbi WsMaxP
             
-            W.est2.Ts=zeros(length(trjStart),N);
-            W.est2.Ps=zeros(length(trjStart),N);
-            for m=1:length(trjStart)
-                W.est2.Ts(m,:)=sum(W.Es.pst(trjStart(m):trjEnd(m),:),1); % time spent in each state
+            W.est2.Ts=zeros(length(dat.one),N);
+            W.est2.Ps=zeros(length(dat.one),N);
+            for m=1:length(dat.one)
+                W.est2.Ts(m,:)=sum(W.Es.pst(dat.one(m):dat.end(m),:),1); % time spent in each state
                 W.est2.Ps(m,:)=W.est2.Ts(m,:)/sum(W.est2.Ts(m,:));
             end
             
@@ -695,8 +691,7 @@ end
 %% slim down the model, on request, by deleting the bulky E-field
 %%% ML: maybe some other bulky fields should go as well?
 if(do_slim)
-    W=rmfield(W,'E');
-    W.est=rmfield(W.est,{'Ts','Ps'});
+    W=rmfield(W,{'Es','Etrj'});
 end
 %% auxiliary functions
     function dFminus=displayConvergence()
