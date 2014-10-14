@@ -63,6 +63,10 @@ elseif(strcmp(opt.prior_type_locErr,'rms_strength'))
     sigma2=opt.prior_locErr^2;
     strength=opt.prior_locErrStrength;
     [W.PM.nv,W.PM.cv]=inverseGamma_mean_strength(sigma2,strength,N);
+elseif(strcmp(opt.prior_type_locErr,'mean_strength'))
+    sigma=opt.prior_locErr;
+    strength=opt.prior_locErrStrength;
+    [W.PM.nv,W.PM.cv]=inverseGamma_meanSqrt_strength(sigma,strength,N);
 else
     error(['VB5_createPrior: did not recognize prior_type_locErr : ' opt.prior_type_locErr])
 end
@@ -82,10 +86,23 @@ function [n,c]=inverseGamma_mean_strength(mean,strength,N)
 % Default dynamic localization error prior, specified using the mean value
 % and total strength per state.
 if(strength<=1)
-    error('inverseGamma_mean_strength: prior strength must be > 1.')
+    error('inverseGamma_mean_strength: prior strength must be > 1 for mean strength option.')
 end
 % each emission variable gets same strength independent of model size
 n=strength*ones(1,N);
-c=mean*(strength-1);
+c=mean*(strength-1)*ones(1,N);
 end
 
+function [n,c]=inverseGamma_meanSqrt_strength(mean,strength,N)
+% Default dynamic localization error prior, specified using the mean value
+% and total strength per state.
+if(strength<=-0.5)
+    error('inverseGamma_meansqrt_strength: prior strength must be > -0.5 for meansqrt strength option.')
+end
+% each emission variable gets same strength independent of model size
+n=strength*ones(1,N);
+if(strength>1000)
+    warning('inverseGamma_meansqrt_strength can be numerically unstable for strength > 1000')
+end
+c=mean^2*exp(2*(gammaln(strength)-gammaln(strength-0.5)))*ones(1,N);
+end

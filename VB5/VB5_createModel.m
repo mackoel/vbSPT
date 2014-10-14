@@ -91,7 +91,7 @@ M.cl=Ddt*(strength-1);
 tau=W0.param.blur_tau;
 beta=tau*(1-tau)-W0.param.blur_R;
 M.na=ones(1,N)*strength;
-M.ca=M.na.*(2*Ddt*beta+locErr^2);
+M.ca=M.na.*(2*Ddt*beta+locErr.^2);
 
 wA=A*strength;
 M.wa=[sum(wA,2)-diag(wA) diag(wA)];

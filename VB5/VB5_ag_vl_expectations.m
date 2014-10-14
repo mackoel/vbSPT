@@ -1,7 +1,7 @@
-function [alpha,ln_alpha,lambda_inv,ln_lambda,KL_lv,lambda,nu,sqrtNu]=...
+function [alpha,ln_alpha,lambda_inv,ln_lambda,KL_lv,lambda,v,sqrtV]=...
     VB5_ag_vl_expectations(W,showWarning,showAll)
 %%
-% [alpha,ln_alpha,lambda_inv,ln_lambda,KL_lv,lambda,nu,sqrtNu]=...
+% [alpha,ln_alpha,lambda_inv,ln_lambda,KL_lv,lambda,v,sqrtNu]=...
 %                             VB5_ag_vl_expectations(W,showWarning,showAll)
 %
 % Numerical evaluation of expectation values of the variational
@@ -15,7 +15,7 @@ if(~exist('showAll','var') || isempty(showAll))
 end% global parameters
 b=W.param.blur_tau*(1-W.param.blur_tau)-W.param.blur_R;
 % tolerance parameters
-Nstd_safety=5; % number of estimated standard deviations to include in integrals
+Nstd_margin=10; % number of estimated standard deviations to include in integrals
 relTol=1e-10;    % relative integration tolerance
 %%
 for state=1:W.N
@@ -56,10 +56,10 @@ for state=1:W.N
     stdL=sqrt(covarianceMatrix(1,1));
     stdV=sqrt(covarianceMatrix(2,2));
 
-    l0G=max(0,l_max-12*stdL);
-    l1G=l_max+10*stdL;
-    v0G=max(0,v_max-12*stdV);
-    v1G=v_max+10*stdV;
+    l0G=max(0,l_max-Nstd_margin*stdL);
+    l1G=l_max+Nstd_margin*stdL;
+    v0G=max(0,v_max-Nstd_margin*stdV);
+    v1G=v_max+Nstd_margin*stdV;
     %% check for signs of bad scaling        
     corrLV=covarianceMatrix(1,2)/stdL/stdV;    
     if(sqrt(cond(covarianceMatrix))>1000)
@@ -72,46 +72,59 @@ for state=1:W.N
     tic
     % normalization constant
     zFun=@(ll,vv)(exp(logQ(ll,vv)-logQref));
-    Zlv=integral2(zFun,l0G,l1G,v0G,v1G,'relTol',1e-9);
+    Zlv=integral2(zFun,l0G,l1G,v0G,v1G,'relTol',relTol,'abstol',1e-9);
     lnZ=log(Zlv)+logQref; % full normalization constant for exp(logQ).
     
     % <alpha>
     funAlpha=@(ll,vv)(1./(vv+b*ll));
     aFun=@(ll,vv)(funAlpha(ll,vv).*zFun(ll,vv));
-    alpha(state)=integral2(aFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+    alpha(state)=integral2(aFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv;
 
     % <ln alpha>
     lnaFun=@(ll,vv)(log(funAlpha(ll,vv)).*zFun(ll,vv));
-    ln_alpha(state)=integral2(lnaFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+    ln_alpha(state)=integral2(lnaFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv;
 
     % <gamma> = <1/lambda>
-    gFun=@(ll,vv)(1./ll.*zFun(ll,vv));
-    lambda_inv(state)=integral2(gFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+    gFun=@(ll,vv)(l_max./ll.*zFun(ll,vv));
+    lambda_inv(state)=integral2(gFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv/l_max;
 
     % <ln lambda>
-    lngFun=@(ll,vv)(log(ll).*zFun(ll,vv));
-    ln_lambda(state)=integral2(lngFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+    lngFun=@(ll,vv)(log(ll/l_max).*zFun(ll,vv));
+    ln_lambda(state)=integral2(lngFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv+log(l_max);
 
     if(nargout>=5)
         % <2*D*dt>=<lambda>
         lambdaFun=@(ll,vv)(ll.*zFun(ll,vv));
-        lambda(state)=integral2(lambdaFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+        lambda(state)=integral2(lambdaFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv;
     end
     if(nargout>=6)
         % <v> = <sigma^2>
         vFun=@(ll,vv)(vv.*zFun(ll,vv));
-        nu(state)=integral2(vFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+        v(state)=integral2(vFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv;
     end
     if(nargout>=7)
         % <sig>=<sqrt(v)>
         sigFun=@(ll,vv)(sqrt(vv).*zFun(ll,vv));
-        sqrtNu(state)=integral2(sigFun,l0G,l1G,v0G,v1G,'relTol',1e-9)/Zlv;
+        sqrtV(state)=integral2(sigFun,l0G,l1G,v0G,v1G,'relTol',relTol)/Zlv;
     end
     tInt=toc;
     % Kullback-Leibler terms
     KL_lv(state)=-lnZ+gammaln(n0l)+gammaln(n0v)-n0l*log(c0l)-n0v*log(c0v)...
             -(nl-n0l)*ln_lambda(state)-(cl-c0l)*lambda_inv(state)...
-            +na*ln_alpha-ca*alpha;
+            +na*ln_alpha(state)-ca*alpha(state);
+           
+    if(b==0 && false)
+        [B0alpha,B0ln_alpha,B0lambda_inv,B0ln_lambda,B0KL_lv,B0lambda,B0v,B0sqrtv]=...
+            VB5_ag_vl_expectations_beta0(W);
+
+        nv=n0v+na;
+        cv=c0v+ca;
+        lnZ2=gammaln(nl)+gammaln(nv)-nv*log(cv)-nl*log(cl);
+        KL_lv2(state)=-lnZ2+gammaln(n0l)+gammaln(n0v)-n0l*log(c0l)-n0v*log(c0v)...
+            -(nl-n0l)*ln_lambda(state)-(cl-c0l)*lambda_inv(state)...
+            +(nv-n0v)*ln_alpha(state)     -(cv-c0v)*alpha(state);
+    end
+        
     %% plot log density in lambda-v plane
     if(showDistribution)
         ll=linspace(0.9*l0G,1.1*l1G,1e3);
@@ -132,9 +145,9 @@ for state=1:W.N
         vBox=[v0G v0G v1G v1G v0G];
         plot(lBox,vBox,'r')
         
-        title(['q(\lambda,\nu), state ' int2str(state) ])
+        title(['q(\lambda,v), state ' int2str(state) ])
         xlabel('\lambda')
-        ylabel('\nu')
+        ylabel('v')
         colorbar
         box on
         grid on
@@ -258,40 +271,40 @@ dlv=det(T); % area scale factor, cancels in all expectation values
 tic
 % normalization constant
 zFun=@(xx,yy)(exp(logQ(funL(xx,yy),funV(xx,yy))-logQref));
-Zxy=integral2(zFun,xL,xU,funYL,funYU,'relTol',1e-9);
+Zxy=integral2(zFun,xL,xU,funYL,funYU,'relTol',relTol);
 
 % <alpha>
 funAlpha=@(xx,yy)(1./(funV(xx,yy)+b*funL(xx,yy)));
 aFun=@(xx,yy)(funAlpha(xx,yy).*zFun(xx,yy));
-aMean(2)=integral2(aFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+aMean(2)=integral2(aFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <ln alpha>
 lnaFun=@(xx,yy)(log(funAlpha(xx,yy)).*zFun(xx,yy));
-lnaMean(2)=integral2(lnaFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+lnaMean(2)=integral2(lnaFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <gamma>
 gFun=@(xx,yy)(1./funL(xx,yy).*zFun(xx,yy));
-gMean(2)=integral2(gFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+gMean(2)=integral2(gFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <ln gamma>
 lngFun=@(xx,yy)(-log(funL(xx,yy)).*zFun(xx,yy));
-lngMean(2)=integral2(lngFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+lngMean(2)=integral2(lngFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <2*D*dt>=<lambda>
 lambdaFun=@(xx,yy)(funL(xx,yy).*zFun(xx,yy));
-lambdaMean(2)=integral2(lambdaFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+lambdaMean(2)=integral2(lambdaFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <sig2>=<v>
 vFun=@(xx,yy)(funV(xx,yy).*zFun(xx,yy));
-vMean(2)=integral2(vFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+vMean(2)=integral2(vFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <sqrt(2*D*dt)>=<sqrt(lambda)>
 xStdFun=@(xx,yy)(sqrt(funL(xx,yy)).*zFun(xx,yy));
-xStdMean(2)=integral2(xStdFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+xStdMean(2)=integral2(xStdFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 % <sig>=<sqrt(v)>
 sigFun=@(xx,yy)(sqrt(funL(xx,yy)).*zFun(xx,yy));
-sigMean(2)=integral2(sigFun,xL,xU,funYL,funYU,'relTol',1e-9)/Zxy;
+sigMean(2)=integral2(sigFun,xL,xU,funYL,funYU,'relTol',relTol)/Zxy;
 
 tInt(2)=toc
 

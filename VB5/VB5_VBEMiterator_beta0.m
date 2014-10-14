@@ -619,7 +619,7 @@ while(runMore)
         clear wB0 eyeB B2 wa0
 
         % emission parameters %%% remains to do
-        [~,~,~,~,~,lambda,W.est.sig2Mean,W.est.sigMean]=...
+        [~,~,~,~,~,lambda,W.est.sig2Mean]=...
             VB5_ag_vl_expectations_beta0(W);
         W.est.DMean=lambda/2/W.param.timestep;
         %%%W.est.DMode=W.M.cg/2./(W.M.ng+1)/W.param.timestep;

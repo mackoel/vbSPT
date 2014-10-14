@@ -205,7 +205,7 @@ while(runMore)
         Ldiag=zeros(Ttot,3); % diagonals in the Lambda matrix
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
-            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
             X1=dat.one(nt);
             XT=dat.end(nt);
             T=1+XT-X1; % length of current trajectory
@@ -215,20 +215,20 @@ while(runMore)
             Malpha_t=W.Es.pst(X1:XT,:)*W.Epar.alpha';
             
             for k=1:dim
-                nu(MU1+1:MUT,k)=dat.x(X1+1:XT,k).*Malpha_t(2:T)*(1-tau)...
+                nu(MU1+1:MUe,k)=dat.x(X1+1:XT,k).*Malpha_t(2:T)*(1-tau)...
                     +dat.x(X1:XT-1,k).*Malpha_t(1:T-1)*tau;
             end
             nu(MU1,:)=dat.x(X1,:)*Malpha_t(1)*(1-tau);
-            nu(MUT+1,:)=dat.x(XT,:)*Malpha_t(T)*tau;
+            nu(MUe+1,:)=dat.x(XT,:)*Malpha_t(T)*tau;
             
             % diagonal elements
             Ldiag(MU1,2)      =Mgamma_t(1)+(1-tau)^2*Malpha_t(1);
-            Ldiag(MU1+1:MUT,2)=Mgamma_t(2:T)+Malpha_t(2:T)*(1-tau)^2 ...
+            Ldiag(MU1+1:MUe,2)=Mgamma_t(2:T)+Malpha_t(2:T)*(1-tau)^2 ...
                 +Mgamma_t(1:T-1)+Malpha_t(1:T-1)*tau^2;
-            Ldiag(MUT+1,2)    = Mgamma_t(T)+Malpha_t(T)*tau^2;
+            Ldiag(MUe+1,2)    = Mgamma_t(T)+Malpha_t(T)*tau^2;
             % off-diagonal elements
-            Ldiag(MU1:MUT,1)    =Malpha_t*tau*(1-tau)-Mgamma_t;
-            Ldiag(MU1+1:MUT+1,3)=Malpha_t*tau*(1-tau)-Mgamma_t;
+            Ldiag(MU1:MUe,1)    =Malpha_t*tau*(1-tau)-Mgamma_t;
+            Ldiag(MU1+1:MUe+1,3)=Malpha_t*tau*(1-tau)-Mgamma_t;
         end
         % compute \Sigma(t,t), \Sigma(t,t+1)
         %Lambda=spdiags(Ldiag,-1:1,Ttot,Ttot);
@@ -295,15 +295,15 @@ while(runMore)
         W.E.ca=zeros(1,N);
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
-            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
             X1=dat.one(nt);
             XT=dat.end(nt);
             T=1+XT-X1; % length of current trajectory
             
             X     = dat.x(X1:XT,:);
-            MU    = W.Etrj.mu(MU1:MUT+1,:);
-            Stt   = W.Etrj.CovDiag0(MU1:MUT+1);
-            Sttp1 = W.Etrj.CovDiag1(MU1:MUT);
+            MU    = W.Etrj.mu(MU1:MUe+1,:);
+            Stt   = W.Etrj.CovDiag0(MU1:MUe+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUe);
             W.E.cl= W.E.cl+(...
                 dim/2*( Stt(1:T)+Stt(2:T+1)-2*Sttp1(1:T))...
                 +1/2*sum(diff(MU,[],1).^2,2) ...
@@ -334,16 +334,16 @@ while(runMore)
     [W.Epar.alpha,W.Epar.ln_alpha,W.Epar.lambda_inv,W.Epar.ln_lambda,...
         W.Epar.KL_lv]=VB5_ag_vl_expectations(W,false,false);
     if(beta==0)
-    [E0par.alpha,E0par.ln_alpha,E0par.lambda_inv,E0par.ln_lambda,...
-        E0par.KL_lv]=VB5_ag_vl_expectations_beta0(W);        
+        [E0par.alpha,E0par.ln_alpha,E0par.lambda_inv,E0par.ln_lambda,...
+            E0par.KL_lv]=VB5_ag_vl_expectations_beta0(W);
     end
     % check for problems
     isNanInf=(sum(~isfinite([W.Epar.alpha W.Epar.ln_alpha ...
         W.Epar.lambda_inv W.Epar.ln_lambda W.Epar.KL_lv]))>1);
-        if(isNanInf)
-            error('VB5_VBEMiter:Epar_not_finite','Nan/Inf generated before E step')
-        end
-    
+    if(isNanInf)
+        error('VB5_VBEMiter:Epar_not_finite','Nan/Inf generated before E step')
+    end
+    % forward-backward step
     if( isfield(W,'M') && isfield(W,'Etrj'))
         % coupling matrix is the same for all trajectories
         % lnQ=psi(W.M.wA)-psi(sum(W.M.wA,2))*ones(1,W.N); % old version
@@ -371,16 +371,18 @@ while(runMore)
         
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
-            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MU=W.Etrj.mu(MU1:MUe+1,:);
+            Stt  =W.Etrj.CovDiag0(MU1:MUe+1);
+            Sttp1=W.Etrj.CovDiag1(MU1:MUe);
+
             X1=dat.one(nt);
             XT=dat.end(nt);
+            X=dat.x(X1:XT,:);            
             T=1+XT-X1; % length of current trajectory
-            MU=W.Etrj.mu(MU1:MUT+1,:);
-            X=dat.x(X1:XT,:);
-            Stt  =W.Etrj.CovDiag0(MU1:MUT+1);
-            Sttp1=W.Etrj.CovDiag1(MU1:MUT);
+
             for j=1:N
-                lnH(dat.one(nt),j)=lnH(X1,j)+lnH1(j); % start of each trajectory
+                lnH(X1,j)=lnH(X1,j)+lnH1(j); % start of each trajectory
                 lnH(X1:XT,j)=lnH(X1:XT,j)... % dimension-independent data terms
                     -dim/2*W.Epar.lambda_inv(j)*(Stt(1:T)+Stt(2:T+1)-2*Sttp1)...
                     -dim/2*W.Epar.alpha(j)*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1);
@@ -414,15 +416,15 @@ while(runMore)
         W.E.ca=zeros(1,N);
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
-            MUT=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MU    = W.Etrj.mu(MU1:MUe+1,:);
+            Stt   = W.Etrj.CovDiag0(MU1:MUe+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUe);
             X1=dat.one(nt);
             XT=dat.end(nt);
-            T=1+XT-X1; % length of current trajectory
-           
             X     = dat.x(X1:XT,:);
-            MU    = W.Etrj.mu(MU1:MUT+1,:);
-            Stt   = W.Etrj.CovDiag0(MU1:MUT+1);
-            Sttp1 = W.Etrj.CovDiag1(MU1:MUT);
+            T=1+XT-X1; % length of current trajectory
+
             W.E.cl= W.E.cl+(...
                         dim/2*( Stt(1:T)+Stt(2:T+1)-2*Sttp1(1:T))...
                          +1/2*sum(diff(MU,[],1).^2,2) ...
@@ -447,8 +449,6 @@ while(runMore)
         for kc=1:length(fc)
             fname='                 :';
             fname(1:length(fc{kc}))=fc{kc};
-            %disp([fc{kc} ' num : ' num2str(W.Epar.(fc{kc}),4)])
-            %disp([fc{kc} ' xact: ' num2str( E0par.(fc{kc}),4)])
              disp([fname ' eRel: ' num2str( W.Epar.(fc{kc})./E0par.(fc{kc})-1,4)])
         end
         disp('--------------------------------------------------------')
