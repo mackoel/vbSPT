@@ -6,7 +6,7 @@
  questions can be found at 'sourceforge.net/projects/vbspt/'.
 
  ========================================================================= 
- Copyright (C) 2013 Martin Lindén, Fredrik Persson, and Johan Elf
+ Copyright (C) 2014 Martin Lindén, Fredrik Persson, and Johan Elf
  
  E-mail: 
  bmelinden@gmail.com, freddie.persson@gmail.com, johan.elf@gmail.com
@@ -31,10 +31,11 @@
  and by Jan-Willem van de Meent (in external/), see copyright in individual 
  files.
  =========================================================================
-current master branch:
+VB5 blur model branch:
+- new analysis family that models localization errors and 
 
-VB3 fixed bugs:
- - corrected aggregation indices in VB3_removeState.m
+master branch:
+ - fixed VB3 bug: corrected aggregation indices in VB3_removeState.m
 --------------------------------------------------------------------------
 v 1.1.1 (2014-10-11): minor bugfix release
  - corrected a sign error in the KL divergence of the initial state vector 
