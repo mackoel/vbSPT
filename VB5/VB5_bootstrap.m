@@ -1,4 +1,4 @@
-function [wbs,Wmean,Wstd]=VB5_bootstrap(W,X,opt,NB,varargin)
+function [wbs,Wmean,Wstd]=VB5_bootstrap(W,dat,opt,NB,varargin)
 % [wbs,Wmean,Wstd]=VB5_bootstrap(W,dat,opt,NB,wbs0)
 %
 % Run NB bootstrap fits starting from model W and data X. Each bootstrap
@@ -67,9 +67,10 @@ else
 end
 if(~exist('NB','var') || isempty(NB)); NB=100;end
 %% bootstrap fits
-L=length(X);
+L=length(dat.one);
 tic
-parfor k=1:NB
+%%%parfor k=1:NB
+for k=1:NB
     %tic
     if(hasindices)
         ind=wbs0(k).ind;
@@ -78,11 +79,50 @@ parfor k=1:NB
     end
     %disp(['bootstrap iter ' int2str(k) ' 1'])
     % produce resampled data set
-    Y=X(ind);                       %#ok
-    dat=VB5_preprocess(Y,opt.dim);  %#ok
+    datY=dat;
+    ww=W;
+    
+    % rewire trajectories and input guess 
+    tic
+    EtrjOne=1;
+    EtrjEnd=0;
+    datOne=1;
+    datEnd=0;
+    for tt=1:length(datY.one)
+        TT=dat.T(ind(tt));
+        
+        % rewire old data
+        datY.T=TT;
+        datY.one(tt)=datOne;
+        datEnd=datOne+TT-1;
+        datY.end(tt)=datEnd;
+        datOne=datEnd+1;
+        x0= dat.one(ind(tt)):dat.end(ind(tt));
+        x1=datY.one(tt):datY.end(tt);
+        datY.x(x1,:)=dat.x(x0,:);
+        
+        % rewire old input guess
+        ww.Etrj.one(tt)=EtrjOne;
+        EtrjEnd=EtrjOne+TT;
+        ww.Etrj.end(tt)=EtrjEnd;
+        EtrjOne=EtrjEnd+1;
+        
+        mu0= W.Etrj.one(ind(tt)):W.Etrj.end(ind(tt));
+        mu1=ww.Etrj.one(tt):ww.Etrj.end(tt);
+        
+        ww.Etrj.mu(mu1,:)      =W.Etrj.mu(mu0,:);
+        ww.Etrj.CovDiag0(mu1)=W.Etrj.CovDiag0(mu0);
+        ww.Etrj.CovDiag1(mu1(1:end-1))=W.Etrj.CovDiag1(mu0(1:end-1));
+    end
+    datY.x=datY.x(1:datEnd,:);    
+    ww.Etrj.mu=ww.Etrj.mu(1:EtrjEnd,:);
+    ww.Etrj.CovDiag0=ww.Etrj.CovDiag0(1:EtrjEnd);
+    ww.Etrj.CovDiag1=ww.Etrj.CovDiag1(1:EtrjEnd-1);
+    disp(['rewired: ' num2str(toc) ])
+    ww=rmfield(ww,{'Es','Epar','E','est'});
     
     %disp(['bootstrap iter ' int2str(k) ' 2'])
-    ww=opt.VBEMfunction(W,dat,'outputLevel',0,'maxIter',opt.maxIter,...
+    ww=opt.VBEMfunction(ww,datY,'outputLevel',2,'maxIter',opt.maxIter,...
         'relTolF',opt.relTolF,'tolPar',opt.tolPar,'slim');
     %disp(['bootstrap iter ' int2str(k) ' 3'])    
     wbs(k).M=ww.M;

@@ -137,7 +137,7 @@ parfor iter=1:opt.runs
     
     % converge largest model
     w0=w;
-    w=opt.VBEMfunction(w0,dat,'outputLevel',2,'maxIter',opt.maxIter,...
+    w=opt.VBEMfunction(w0,dat,'outputLevel',0,'maxIter',opt.maxIter,...
         'relTolF',opt.relTolF,'tolPar',opt.tolPar);
     %% greedy search
     Witer{iter}{1}=w;
@@ -153,7 +153,7 @@ parfor iter=1:opt.runs
                 %% try to remove a looping state
                 w=VB5_removeState(w0,h(k),opt);
                 try
-                    w=opt.VBEMfunction(w,dat,'outputLevel',1,'maxIter',...
+                    w=opt.VBEMfunction(w,dat,'outputLevel',0,'maxIter',...
                         opt.maxIter,'relTolF',opt.relTolF,'tolPar',opt.tolPar);
                 catch me
                     disp('VB5_HMManalysis encountered an error:')
