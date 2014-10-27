@@ -82,7 +82,7 @@ for k=1:NB
     datY=dat;
     ww=W;
     
-    % rewire trajectories and input guess 
+    % resample trajectories and input guess 
     tic
     EtrjOne=1;
     EtrjEnd=0;
@@ -91,8 +91,8 @@ for k=1:NB
     for tt=1:length(datY.one)
         TT=dat.T(ind(tt));
         
-        % rewire old data
-        datY.T=TT;
+        % resample old data
+        datY.T(tt)=TT;
         datY.one(tt)=datOne;
         datEnd=datOne+TT-1;
         datY.end(tt)=datEnd;
@@ -101,7 +101,7 @@ for k=1:NB
         x1=datY.one(tt):datY.end(tt);
         datY.x(x1,:)=dat.x(x0,:);
         
-        % rewire old input guess
+        % resample old input guess
         ww.Etrj.one(tt)=EtrjOne;
         EtrjEnd=EtrjOne+TT;
         ww.Etrj.end(tt)=EtrjEnd;
@@ -118,12 +118,12 @@ for k=1:NB
     ww.Etrj.mu=ww.Etrj.mu(1:EtrjEnd,:);
     ww.Etrj.CovDiag0=ww.Etrj.CovDiag0(1:EtrjEnd);
     ww.Etrj.CovDiag1=ww.Etrj.CovDiag1(1:EtrjEnd-1);
-    disp(['rewired: ' num2str(toc) ])
+    disp(['Bootstrap resampled data and model : ' num2str(toc) ' s.'])
     ww=rmfield(ww,{'Es','Epar','E','est'});
     
     %disp(['bootstrap iter ' int2str(k) ' 2'])
-    ww=opt.VBEMfunction(ww,datY,'outputLevel',2,'maxIter',opt.maxIter,...
-        'relTolF',opt.relTolF,'tolPar',opt.tolPar,'slim');
+    save BSsnapshot.mat %% for debugging
+    ww=opt.VBEMfunction(ww,datY,'outputLevel',2,'maxIter',opt.maxIter,'relTolF',opt.relTolF,'tolPar',opt.tolPar,'slim');
     %disp(['bootstrap iter ' int2str(k) ' 3'])    
     wbs(k).M=ww.M;
     wbs(k).est=ww.est;

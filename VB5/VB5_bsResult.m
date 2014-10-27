@@ -61,7 +61,7 @@ else
     error(['Not a valid input, aborting bootstrapping']);
 end
 %% load data
-X=VB5_readData(opt);
+X=VB5_preprocess(opt);
 res=load(opt.outputfile);
 
 Wbest = res.Wbest;
@@ -100,7 +100,8 @@ if(opt.parallelize_config && ~do_HMM_analysis)
     if(matlabpool('size')>0) % disable existing setting
         matlabpool close
     end
-    eval(opt.parallel_start)
+    %%% disable parallellism for debugging eval(opt.parallel_start)
+    warning('bootstrap parallellism disabled for debvugging')
 end
 
 
@@ -108,7 +109,7 @@ end
 %% bootstrap
 disp(['jobID: ' opt.jobID])
 disp('Starting bootstrapping...')
-disp('----------')
+%disp('----------')
 
 if(opt.bootstrapNum>0)
     
