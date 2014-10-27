@@ -14,6 +14,18 @@ if(b>0)
         '. VB5_ag_vl_expectations_beta0 only applies to the case beta=0.'])
 end
 %%
+alpha=zeros(1,W.N);
+v_inv=alpha;
+ln_alpha=zeros(1,W.N);
+ln_v=ln_alpha;
+v=zeros(1,W.N);
+lambda_inv=zeros(1,W.N);
+ln_lambda=zeros(1,W.N);
+KL_lv=zeros(1,W.N);
+lambda=zeros(1,W.N);
+sqrtv=zeros(1,W.N);
+lnZ=zeros(1,W.N);
+
 for state=1:W.N    
     %% translate parameters
     n0l=W.PM.nl(state);
@@ -53,7 +65,7 @@ for state=1:W.N
     v(state)=cv/(nv-1);
     
     % <sig>=<sqrt(v)>
-    %sqrtv(state)=0.5*log(pi*cv)+gammaln(nv-0.5)-(nv-1)*log(4)-2*gammaln(nv);    
+    sqrtv(state)=sqrt(cv)*exp(gammaln(nv-0.5)-gammaln(nv));
     
     % Kullback-Leibler terms
     KL_lv(state)=-lnZ(state)+gammaln(n0l)+gammaln(n0v)-n0l*log(c0l)-n0v*log(c0v)...

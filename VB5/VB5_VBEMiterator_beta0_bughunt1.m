@@ -194,7 +194,7 @@ while(runMore)
         end        
     end
     %% trajectory E-step : W.Es + W.M  -> W.Etrj
-    if(false)
+    if(true)
         if( isfield(W,'Es') && isfield(W,'M'))% && false)
         % construct \nu
         Ttot=sum(dat.T+1);   % total number of steps in hidden trajectory
@@ -348,7 +348,7 @@ while(runMore)
             lnQ(i,i)=psi(W.M.wa(i,2))-psi(wa0(i));
             for j=[1:(i-1) (i+1):W.N]
                 lnQ(i,j)=psi(W.M.wa(i,1))-psi(wa0(i))...
-                    +psi(W.M.wB(i,j))-psi(wB0(i));
+                        +psi(W.M.wB(i,j))-psi(wB0(i));
             end
         end
         
@@ -366,9 +366,9 @@ while(runMore)
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
             MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
-            MU=W.Etrj.mu(MU1:MUe+1,:);
-            Stt  =W.Etrj.CovDiag0(MU1:MUe+1);
-            Sttp1=W.Etrj.CovDiag1(MU1:MUe);
+            MU=W.Etrj.mu(MU1:MUe+1,:);        % <y(t)>       for hidden trj, t=1:T+1
+            Stt  =W.Etrj.CovDiag0(MU1:MUe+1); % <y(t)^2>     for hidden trj, t=1:T+1
+            Sttp1=W.Etrj.CovDiag1(MU1:MUe);   % <y(t)y(t+1)> for hidden trj, t=1:T
 
             X1=dat.one(nt);
             XT=dat.end(nt);
@@ -395,7 +395,7 @@ while(runMore)
 
         [lnZz,wA,W.Es.pst]=HMM_multiForwardBackward(Q,H,dat.end);
         % forward sweep normalization constant (same as VB3)
-        lnZQ=(sum(dat.T-2))*lnQmax;
+        lnZQ=(sum(dat.T-1))*lnQmax;
         lnZq=sum(lnHMax);
         
         % transition counts
