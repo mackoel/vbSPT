@@ -153,7 +153,6 @@ end
 runMore=true;
 C.exitStatus='';
 Wm2=struct;Wm1=struct; %#ok
-E0par=struct;
 %% iterate
 while(runMore)
     % keep a short history in case something goes wrong...
@@ -195,7 +194,7 @@ while(runMore)
         end        
     end
     %% trajectory E-step : W.Es + W.M  -> W.Etrj
-    if( isfield(W,'Es') && isfield(W,'M'))% && false)        
+    if( isfield(W,'Es') && isfield(W,'M'))
         % construct \nu
         Ttot=sum(dat.T+1);   % total number of steps in hidden trajectory
         nu=zeros(Ttot,dim);
@@ -285,7 +284,7 @@ while(runMore)
         clear mu Covdiag1 CovDiag0 mu_nt Covdiag1_nt CovDiag0_nt Sigma_nt nu_nt Ldiag_nt
         clear nu Ldiag Lambda_nt MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t
         clear Ldiag Sigma logDetLambda
-    end    
+    end
     %% partial parameter M-step 2
     if(isfield(W,'Etrj') && isfield(W,'Es'))
         W.E.cl=zeros(1,N);
@@ -351,7 +350,7 @@ while(runMore)
             lnQ(i,i)=psi(W.M.wa(i,2))-psi(wa0(i));
             for j=[1:(i-1) (i+1):W.N]
                 lnQ(i,j)=psi(W.M.wa(i,1))-psi(wa0(i))...
-                    +psi(W.M.wB(i,j))-psi(wB0(i));
+                        +psi(W.M.wB(i,j))-psi(wB0(i));
             end
         end
         
@@ -369,9 +368,9 @@ while(runMore)
         for nt=1:length(W.Etrj.one)
             MU1=W.Etrj.one(nt);
             MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
-            MU=W.Etrj.mu(MU1:MUe+1,:);
-            Stt  =W.Etrj.CovDiag0(MU1:MUe+1);
-            Sttp1=W.Etrj.CovDiag1(MU1:MUe);
+            MU=W.Etrj.mu(MU1:MUe+1,:);        % <y(t)>       for hidden trj, t=1:T+1
+            Stt  =W.Etrj.CovDiag0(MU1:MUe+1); % <y(t)^2>     for hidden trj, t=1:T+1
+            Sttp1=W.Etrj.CovDiag1(MU1:MUe);   % <y(t)y(t+1)> for hidden trj, t=1:T
 
             X1=dat.one(nt);
             XT=dat.end(nt);
@@ -398,7 +397,7 @@ while(runMore)
 
         [lnZz,wA,W.Es.pst]=HMM_multiForwardBackward(Q,H,dat.end);
         % forward sweep normalization constant (same as VB3)
-        lnZQ=(sum(dat.T-2))*lnQmax;
+        lnZQ=(sum(dat.T-1))*lnQmax;
         lnZq=sum(lnHMax);
         
         % transition counts
@@ -454,7 +453,8 @@ while(runMore)
     %% lower bound
     % hidden trajectory
     if(isfield(W.Etrj,'logDetLambda'))
-        W.Fterms.trj=dim/2*sum(dat.T+1)*(1+log(2*pi))-dim/2*W.Etrj.logDetLambda;
+        %W.Fterms.trj=dim/2*sum(dat.T+1)*(1+log(2*pi))-dim/2*W.Etrj.logDetLambda;
+        W.Fterms.trj=-dim/2*W.Etrj.logDetLambda;
         F=W.Fterms.trj;
     else
         F=0;
@@ -522,14 +522,6 @@ while(runMore)
     
     % KL divergence of emission parameters
     KL_lv=W.Epar.KL_lv;
-    %KL_gj= W.PM.ng.*log(W.M.cg./W.PM.cg)...
-    %    -W.M.ng.*(1-W.PM.cg./W.M.cg)...
-    %    -gammaln(W.M.ng)+gammaln(W.PM.ng)...
-    %    +(W.M.ng-W.PM.ng).*psi(W.M.ng);
-    %KL_aj= W.PM.na.*log(W.M.ca./W.PM.ca)...
-    %    -W.M.na.*(1-W.PM.ca./W.M.ca)...
-    %    -gammaln(W.M.na)+gammaln(W.PM.na)...
-    %    +(W.M.na-W.PM.na).*psi(W.M.na);
     % remove duplicate terms in each aggregate
     for a=1:max(W.M.SA)
        ind=find(a==W.M.SA);
@@ -545,13 +537,18 @@ while(runMore)
     end
     %% assembly of the free energy
     W.F=F;                
+    W.Fterms.Fterms      =[ W.Fterms.lnZQ+W.Fterms.lnZq+W.Fterms.lnZz ...
+                           -sum(KL_a) -sum(KL_B) -sum(KL_pi) -sum(KL_lv)...
+                           W.Fterms.trj];
+    W.Fterms.FtermsNames='[lnZQ+lnZq+lnZz -sum(KL_a) -sum(KL_B) -sum(KL_pi) -sum(KL_lv) trj]';
+    
     if(~isfinite(W.F))
         error('VB5_VBEMiter:F_not_finite','Nan/Inf generated in lower bound')
-    end
+    end    
     %catch me
     %% catch potential errors
     %me.getReport
-    %crashfile=sprintf('VB1_VBEMiterator_error_%f.mat',now);
+    %crashfile=sprintf('VB5_VBEMiterator_error_%f.mat',now);
     %save(crashfile)
     %runMore=false;
     %C.exitStatus=[C.exitStatus 'VB1_VBEMiterator generated error'];
@@ -600,6 +597,11 @@ while(runMore)
             fm=displayConvergence();
             if(fm)
                 disp('---------- lower bound decrease?!!! ----------')
+                if(isfield(Wm1,'Fterms'))
+                    disp(W.Fterms.FtermsNames)
+                    disp(num2str(W.Fterms.Fterms-Wm1.Fterms.Fterms))
+                    disp('----------------------------------------------')
+                end
             end
         end
         if(C.iter<2 && C.iter<C.maxIter) % run at least 2 iterations unless specifi
@@ -642,9 +644,6 @@ while(runMore)
         % occupation
         W.est.Ttot=sum(W.Es.pst,1);
         W.est.Ptot=W.est.Ttot/sum(W.est.Ttot);
-
-        W.Fterms.Fterms=[ W.Fterms.lnZQ+W.Fterms.lnZq+W.Fterms.lnZz -sum(KL_a) -sum(KL_B) -sum(KL_pi) -sum(KL_lv)];
-        W.Fterms.FtermsNames='[lnZQ+lnZq+lnZz -sum(KL_a) -sum(KL_B) -sum(KL_pi) -sum(KL_lv)]';
 
         W.est.Ps=W.est.Ttot/sum(W.est.Ttot);
         

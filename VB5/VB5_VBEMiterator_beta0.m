@@ -437,10 +437,9 @@ while(runMore)
     %% lower bound
     % hidden trajectory
     if(isfield(W.Etrj,'logDetLambda'))
-        W.Fterms.trj=dim/2*sum(dat.T+1)*(1+log(2*pi))-dim/2*W.Etrj.logDetLambda;
-        %W.Fterms.trj=-dim/2*W.Etrj.logDetLambda;
+        %W.Fterms.trj=dim/2*sum(dat.T+1)*(1+log(2*pi))-dim/2*W.Etrj.logDetLambda;
+        W.Fterms.trj=-dim/2*W.Etrj.logDetLambda;
         F=W.Fterms.trj;
-        disp(['Ftrj : ' num2str(W.Fterms.trj,10)]) %%% debug
     else
         F=0;
         W.Fterms.trj=0;
