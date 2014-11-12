@@ -238,7 +238,6 @@ while(runMore)
         CovDiag1=zeros(size(nu,1)-1,1);
         
         for nt=1:length(W.Etrj.one)
-            tic
             Lind=W.Etrj.one(nt):W.Etrj.end(nt);
             
             Ldiag_nt=Ldiag(Lind,1:2);
@@ -266,7 +265,6 @@ while(runMore)
             %T_nt=length(Lind);
             logDetLambda=logDetLambda+sum(log(rMax))+log(det(diag(1./rMax)*Lambda_nt));
         end
-        tic
         % determinant ln|Lambda| with scaling to
         % rMax=abs(diag(Lambda));
         % W.Etrj.logDetLambda=sum(log(rMax))+log(det(spdiags(1./rMax,0,Ttot,Ttot)*Lambda));
