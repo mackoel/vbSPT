@@ -1,4 +1,4 @@
-function [W,C,F]=VB5_VBEMiterator_beta0_faster(W,dat,varargin)
+function [W,C,F]=VB5_VBEMiterator_beta0_old1(W,dat,varargin)
 %% [W,C,F]=VB5_VBEMiterator(W,dat,varargin)
 %
 % Perform VBEM iterations, on the VB structure W, with data (structure)
@@ -66,16 +66,6 @@ do_estimates=false;
 do_slim=false;
 displayProgress=false;
 displayExit=true;
-
-% start timing
-C.tParts=zeros(1,10);
-C.nParts=zeros(1,10);
-try
-    foo=toc;
-catch
-    tic;
-end
-
 
 if(nargin>2)        % then parse options
     k=1;            % argument counter
@@ -173,7 +163,6 @@ while(runMore)
     % try one round of VBEM iterations
     %% parameter M-step 1: W.E  + W.PM -> W.M, W.Epar
     if(isfield(W,'E')) % then actually do the update step        
-        C.tParts(1)=C.tParts(1)-toc;
         % transitions and initial conditions
         W.M.wPi = W.PM.wPi + W.E.wPi;
         wB=W.E.wA.*(1-eye(W.N)).*(W.PM.wB>0); % only allowed transitions included
@@ -202,13 +191,10 @@ while(runMore)
         W.Epar.ln_lambda]))>1);
         if(isNanInf)
             error('VB5_VBEMiter:Mfield_not_finite','Nan/Inf generated in VBM step')
-        end 
-        C.tParts(1)=C.tParts(1)+toc;
-        C.nParts(1)=C.nParts(1)+1;
+        end        
     end
     %% trajectory E-step : W.Es + W.M  -> W.Etrj
     if( isfield(W,'Es') && isfield(W,'M'))
-        C.tParts(2)=C.tParts(2)-toc;
         % construct \nu
         Ttot=sum(dat.T+1);   % total number of steps in hidden trajectory
         nu=zeros(Ttot,dim);
@@ -240,27 +226,19 @@ while(runMore)
             Ldiag(MU1:MUe,1)    =Malpha_t*tau*(1-tau)-Mgamma_t;
             Ldiag(MU1+1:MUe+1,3)=Malpha_t*tau*(1-tau)-Mgamma_t;
         end
-        % attempted faster version
-        %MgammaF=W.Es.pst*W.Epar.lambda_inv';
-        %MalphaF=W.Es.pst*W.Epar.alpha';
-        C.tParts(2)=C.tParts(2)+toc;
-        C.nParts(2)=C.nParts(2)+1;        
-        
-        C.tParts(3)=C.tParts(3)-toc;
-        
+        % compute \Sigma(t,t), \Sigma(t,t+1)
+        %Lambda=spdiags(Ldiag,-1:1,Ttot,Ttot);
+        % invert Lambda block by block
+        % Sigma1=inv(Lambda);
+        % Sigma=spalloc(Ttot,Ttot,sum((W.Etrj.end-W.Etrj.one+1).^2));
         logDetLambda=0;
         
         mu=zeros(size(nu));
         CovDiag0=zeros(size(nu,1),1);
         CovDiag1=zeros(size(nu,1)-1,1);
         
-        Stt2=zeros(size(dat.x,1),1);
-        Sttau2=zeros(size(dat.x,1),1);
-        dmu2=zeros(size(dat.x,1),dim);
-        dmx2=zeros(size(dat.x,1),dim);
-        
         for nt=1:length(W.Etrj.one)
-            Lind=W.Etrj.one(nt):W.Etrj.end(nt); % indices in the hidden trj
+            Lind=W.Etrj.one(nt):W.Etrj.end(nt);
             
             Ldiag_nt=Ldiag(Lind,1:2);
             Lambda_nt=zeros(size(Ldiag_nt,1),size(Ldiag_nt,1));
@@ -282,16 +260,10 @@ while(runMore)
             CovDiag0(Lind,1)=CovDiag0_nt;
             CovDiag1(Lind(1:end-1),1)=CovDiag1_nt;
             
+            
             rMax=abs(diag(Lambda_nt));
             %T_nt=length(Lind);
             logDetLambda=logDetLambda+sum(log(rMax))+log(det(diag(1./rMax)*Lambda_nt));
-            
-            Xind=dat.one(nt):dat.end(nt);       % indices in measured positions
-            T=length(Xind);
-            dmu2(Xind,:)=diff(mu_nt,1,1).^2;
-            dmx2(Xind,:)=(dat.x(Xind,:)-(1-tau)*mu_nt(1:T,:)-tau*mu_nt(2:T+1,:)).^2;
-            Stt2(Xind,1)  =CovDiag0_nt(1:T,1)+CovDiag0_nt(2:T+1,1)-2*CovDiag1_nt;
-            Sttau2(Xind,1)=(1-tau)^2*CovDiag0_nt(1:T,1)+tau^2*CovDiag0_nt(2:T+1,1)+2*tau*(1-tau)*CovDiag1_nt;
         end
         % determinant ln|Lambda| with scaling to
         % rMax=abs(diag(Lambda));
@@ -300,44 +272,42 @@ while(runMore)
         clear Lind rMax Lambda_nt logDetLambda %T_nt
         
         % collect averages for hidden trajectory
+        %W.Etrj.mu=Lambda\nu;
+        %W.Etrj.CovDiag0=full(diag(Sigma,0));
+        %W.Etrj.CovDiag1=full(diag(Sigma,1)+diag(Sigma,-1))/2; % possible better to average of rounding errors?
         W.Etrj.mu=mu;
         W.Etrj.CovDiag0=CovDiag0;
         W.Etrj.CovDiag1=CovDiag1; % possible better to average of rounding errors?
-                
+        
         clear mu Covdiag1 CovDiag0 mu_nt Covdiag1_nt CovDiag0_nt Sigma_nt nu_nt Ldiag_nt
         clear nu Ldiag Lambda_nt MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t
         clear Ldiag Sigma logDetLambda
-        C.tParts(3)=C.tParts(3)+toc;
-        C.nParts(3)=C.nParts(3)+1;        
-    elseif(isfield(W,'Etrj')) % construct precomputed Etrj-derived fields
-        C.tParts(3)=C.tParts(3)-toc;
-        Stt2=zeros(size(dat.x,1),1);
-        Sttau2=zeros(size(dat.x,1),1);
-        dmu2=zeros(size(dat.x,1),dim);
-        dmx2=zeros(size(dat.x,1),dim);        
-        for nt=1:length(W.Etrj.one)
-            Xind=dat.one(nt):dat.end(nt);       % indices in measured positions
-            Lind=W.Etrj.one(nt):W.Etrj.end(nt); % indices in the hidden trj, 1:T
-            CovDiag0_nt=W.Etrj.CovDiag0(Lind,1);
-            CovDiag1_nt=W.Etrj.CovDiag1(Lind(1:end-1),1);
-            mu_nt=W.Etrj.mu(Lind,:);
-            T=length(Xind);
-            dmu2(Xind,:)=diff(mu_nt,1,1).^2;
-            dmx2(Xind,:)=(dat.x(Xind,:)-(1-tau)*mu_nt(1:T,:)-tau*mu_nt(2:T+1,:)).^2;
-            Stt2(Xind,1)  =CovDiag0_nt(1:T,1)+CovDiag0_nt(2:T+1,1)-2*CovDiag1_nt;
-            Sttau2(Xind,1)=(1-tau)^2*CovDiag0_nt(1:T,1)+tau^2*CovDiag0_nt(2:T+1,1)+2*tau*(1-tau)*CovDiag1_nt;
-        end
-        clear mu_nt Covdiag1_nt CovDiag0_nt
-        C.tParts(3)=C.tParts(3)+toc;
-        C.nParts(3)=C.nParts(3)+1;                
     end
-    %% partial parameter M-step 2: Etrj,Es -> W.M.cl, W.M.ca
-    if(isfield(W,'Etrj') && isfield(W,'Es'))        
-        C.tParts(4)=C.tParts(4)-toc;        
-        W.E.cl=(dim/2*Stt2  +1/2*sum(dmu2,2))'*W.Es.pst;
-        W.E.ca=(dim/2*Sttau2+1/2*sum(dmx2,2))'*W.Es.pst;        
-        C.tParts(4)=C.tParts(4)+toc;
-        C.nParts(4)=C.nParts(4)+1;        
+    %% partial parameter M-step 2
+    if(isfield(W,'Etrj') && isfield(W,'Es'))
+        W.E.cl=zeros(1,N);
+        W.E.ca=zeros(1,N);
+        for nt=1:length(W.Etrj.one)
+            MU1=W.Etrj.one(nt);
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            X1=dat.one(nt);
+            XT=dat.end(nt);
+            T=1+XT-X1; % length of current trajectory
+            
+            X     = dat.x(X1:XT,:);
+            MU    = W.Etrj.mu(MU1:MUe+1,:);
+            Stt   = W.Etrj.CovDiag0(MU1:MUe+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUe);
+            W.E.cl= W.E.cl+(...
+                dim/2*( Stt(1:T)+Stt(2:T+1)-2*Sttp1(1:T))...
+                +1/2*sum(diff(MU,[],1).^2,2) ...
+                )'*W.Es.pst(X1:XT,:);
+            W.E.ca= W.E.ca+(...
+                dim/2*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1(1:T))...
+                +1/2*sum((X-(1-tau)*MU(1:T,:)-tau*MU(2:T+1,:)).^2,2)...
+                )'*W.Es.pst(X1:XT,:);
+        end
+        
         for a=1:max(W.M.SA)
             % all states in aggregate a gets emission statistics from
             % all states in the same aggregate. Only some expecation values
@@ -364,9 +334,7 @@ while(runMore)
         error('VB5_VBEMiter:Epar_not_finite','Nan/Inf generated before E step')
     end
     % forward-backward step
-    
     if( isfield(W,'M') && isfield(W,'Etrj'))
-        C.tParts(5)=C.tParts(5)-toc;
         % coupling matrix is the same for all trajectories
         % lnQ=psi(W.M.wA)-psi(sum(W.M.wA,2))*ones(1,W.N); % old version
         lnQ=zeros(W.N,W.N);
@@ -376,7 +344,7 @@ while(runMore)
             lnQ(i,i)=psi(W.M.wa(i,2))-psi(wa0(i));
             for j=[1:(i-1) (i+1):W.N]
                 lnQ(i,j)=psi(W.M.wa(i,1))-psi(wa0(i))...
-                    +psi(W.M.wB(i,j))-psi(wB0(i));
+                        +psi(W.M.wB(i,j))-psi(wB0(i));
             end
         end
         
@@ -388,25 +356,39 @@ while(runMore)
         
         % assemble time-dependent weights
         lnH1=psi(W.M.wPi)-psi(sum(W.M.wPi)); % weights from initial state probability
-        lnH0=dim/2*(-W.Epar.ln_lambda+W.Epar.ln_alpha);   % data-independent term, same for all t        
-        % faster assembly of lnH
-        lnH=ones(size(dat.x,1),1)*lnH0;
-        for j=1:N
-            lnH(:,j)=lnH(:,j)...
-                -dim/2*W.Epar.lambda_inv(j)*Stt2...
-                -dim/2*W.Epar.alpha(j)*Sttau2...
-                -sum(1/2*W.Epar.lambda_inv(j)*dmu2+1/2*W.Epar.alpha(j)*dmx2,2);
-            lnH(dat.one,j)=lnH(dat.one,j)+lnH1(j);
+        lnH0=dim/2*(-W.Epar.ln_lambda+W.Epar.ln_alpha);   % data-independent term, same for all t
+        lnH =ones(size(dat.x,1),1)*lnH0;
+        
+        for nt=1:length(W.Etrj.one)
+            MU1=W.Etrj.one(nt);
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MU=W.Etrj.mu(MU1:MUe+1,:);        % <y(t)>       for hidden trj, t=1:T+1
+            Stt  =W.Etrj.CovDiag0(MU1:MUe+1); % <y(t)^2>     for hidden trj, t=1:T+1
+            Sttp1=W.Etrj.CovDiag1(MU1:MUe);   % <y(t)y(t+1)> for hidden trj, t=1:T
+
+            X1=dat.one(nt);
+            XT=dat.end(nt);
+            X=dat.x(X1:XT,:);            
+            T=1+XT-X1; % length of current trajectory
+
+            for j=1:N
+                lnH(X1,j)=lnH(X1,j)+lnH1(j); % start of each trajectory
+                lnH(X1:XT,j)=lnH(X1:XT,j)... % dimension-independent data terms
+                    -dim/2*W.Epar.lambda_inv(j)*(Stt(1:T)+Stt(2:T+1)-2*Sttp1)...
+                    -dim/2*W.Epar.alpha(j)*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1);
+                for k=1:dim
+                    lnH(X1:XT,j)=lnH(X1:XT,j)...
+                        -1/2*W.Epar.lambda_inv(j)*(diff(MU(:,k))).^2 ...
+                        -1/2*W.Epar.alpha(j)*(X(:,k)-(1-tau)*MU(1:T,k)-tau*MU(2:T+1,k)).^2;
+                end
+            end
         end
         lnHMax=max(lnH,[],2);
         H=zeros(size(lnH));
         for j=1:N % now we compute the actual pointwise emission contribution
             H(:,j)=exp(lnH(:,j)-lnHMax);
         end
-        % check if lnH and lnHH are equal?
-        %dlnHmax=max(max(abs(lnHH-lnH)))
-            
-        %end
+
         [lnZz,wA,W.Es.pst]=HMM_multiForwardBackward(Q,H,dat.end);
         % forward sweep normalization constant (same as VB3)
         lnZQ=(sum(dat.T-1))*lnQmax;
@@ -414,21 +396,38 @@ while(runMore)
         
         % transition counts
         W.E.wA=wA;
-        W.E.wPi=sum(W.Es.pst(dat.one,:),1);          % <s_1>=<\delta_{j,s_1}>_{q(s)}
+        W.E.wPi=sum(W.Es.pst(dat.one,:),1);          % <s_1>=<\delta_{j,s_1}>_{q(s)}            
         
         % statistics for next parameter update
         W.E.nl= dim/2*sum(W.Es.pst,1);
         W.E.na=W.E.nl;
-        
-        W.E.cl=(dim/2*Stt2  +1/2*sum(dmu2,2))'*W.Es.pst;
-        W.E.ca=(dim/2*Sttau2+1/2*sum(dmx2,2))'*W.Es.pst;
-        
-        C.tParts(5)=C.tParts(5)+toc;
-        C.nParts(5)=C.nParts(5)+1;
+
+        W.E.cl=zeros(1,N);
+        W.E.ca=zeros(1,N);
+        for nt=1:length(W.Etrj.one)
+            MU1=W.Etrj.one(nt);
+            MUe=W.Etrj.end(nt)-1; % 1:T for hidden trajectory, which has T+1 points
+            MU    = W.Etrj.mu(MU1:MUe+1,:);
+            Stt   = W.Etrj.CovDiag0(MU1:MUe+1);
+            Sttp1 = W.Etrj.CovDiag1(MU1:MUe);
+            X1=dat.one(nt);
+            XT=dat.end(nt);
+            X     = dat.x(X1:XT,:);
+            T=1+XT-X1; % length of current trajectory
+
+            W.E.cl= W.E.cl+(...
+                        dim/2*( Stt(1:T)+Stt(2:T+1)-2*Sttp1(1:T))...
+                         +1/2*sum(diff(MU,[],1).^2,2) ...
+                    )'*W.Es.pst(X1:XT,:);
+            W.E.ca= W.E.ca+(...
+                dim/2*((1-tau)^2*Stt(1:T)+tau^2*Stt(2:T+1)+2*tau*(1-tau)*Sttp1(1:T))...
+                 +1/2*sum((X-(1-tau)*MU(1:T,:)-tau*MU(2:T+1,:)).^2,2)...
+                )'*W.Es.pst(X1:XT,:);
+        end
     else
         error('VB5_VBEMiterator: not enough model fields to perform the E-step.')
     end
-    % check for problems
+        % check for problems
     isNanInf=(sum(~isfinite([W.E.nl W.E.cl W.E.na W.E.ca]))>1);
     if(isNanInf)
         error('VB5_VBEMiter:Efield_not_finite','Nan/Inf generated in VBEs step')
@@ -665,7 +664,6 @@ while(runMore)
     end
 end
 %% exit message
-%C.tParts=C.tParts./C.nParts;
 if(displayExit) % display exit message
     displayHeader();
     displayConvergence();
