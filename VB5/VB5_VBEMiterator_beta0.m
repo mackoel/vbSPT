@@ -1,4 +1,4 @@
-function [W,C,F]=VB5_VBEMiterator_beta0_faster(W,dat,varargin)
+function [W,C,F]=VB5_VBEMiterator_beta0(W,dat,varargin)
 %% [W,C,F]=VB5_VBEMiterator(W,dat,varargin)
 %
 % Perform VBEM iterations, on the VB structure W, with data (structure)
@@ -206,8 +206,9 @@ while(runMore)
         C.tParts(1)=C.tParts(1)+toc;
         C.nParts(1)=C.nParts(1)+1;
     end
-    %% trajectory E-step : W.Es + W.M  -> W.Etrj
+    %% trajectory E-step : W.Es + W.Epar + W.M  -> W.Etrj
     if( isfield(W,'Es') && isfield(W,'M'))
+        if(0) % this is a slower version, kept for controls during optimization
         C.tParts(2)=C.tParts(2)-toc;
         % construct \nu
         Ttot=sum(dat.T+1);   % total number of steps in hidden trajectory
@@ -293,22 +294,51 @@ while(runMore)
             Stt2(Xind,1)  =CovDiag0_nt(1:T,1)+CovDiag0_nt(2:T+1,1)-2*CovDiag1_nt;
             Sttau2(Xind,1)=(1-tau)^2*CovDiag0_nt(1:T,1)+tau^2*CovDiag0_nt(2:T+1,1)+2*tau*(1-tau)*CovDiag1_nt;
         end
+        
         % determinant ln|Lambda| with scaling to
         % rMax=abs(diag(Lambda));
         % W.Etrj.logDetLambda=sum(log(rMax))+log(det(spdiags(1./rMax,0,Ttot,Ttot)*Lambda));
         W.Etrj.logDetLambda=logDetLambda;
-        clear Lind rMax Lambda_nt logDetLambda %T_nt
+
         
         % collect averages for hidden trajectory
         W.Etrj.mu=mu;
         W.Etrj.CovDiag0=CovDiag0;
-        W.Etrj.CovDiag1=CovDiag1; % possible better to average of rounding errors?
-                
+        W.Etrj.CovDiag1=CovDiag1; 
+        C.tParts(3)=C.tParts(3)+toc;
+        C.nParts(3)=C.nParts(3)+1;        
+
+        % compare with external implementation
+        [Emu,ECovDiag0,ECovDiag1,ElogDetLambda,EStt2,ESttau2,Edmu2,Edmx2]=...
+           VB5_VBEtrj_iteration2(...
+           dat.x,dat.T,dat.one,dat.end,dat.dim,...
+           W.Es.pst,W.Epar.lambda_inv,W.Epar.alpha,W.Etrj.one,W.Etrj.end,tau);
+        
+        max(abs(mu-Emu))
+        max(abs(CovDiag0-ECovDiag0))
+        max(abs(CovDiag1-ECovDiag1(1:end-1)))
+        max(abs(logDetLambda-ElogDetLambda))
+        max(abs(Stt2-EStt2))
+        max(abs(Sttau2-ESttau2))
+        max(abs(dmu2-Edmu2))
+        max(abs(dmx2-Edmx2))
+        
+        save VB5_snapshot.mat
+        keyboard
+        
+        clear Lind rMax Lambda_nt logDetLambda
         clear mu Covdiag1 CovDiag0 mu_nt Covdiag1_nt CovDiag0_nt Sigma_nt nu_nt Ldiag_nt
         clear nu Ldiag Lambda_nt MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t
         clear Ldiag Sigma logDetLambda
-        C.tParts(3)=C.tParts(3)+toc;
-        C.nParts(3)=C.nParts(3)+1;        
+        end
+        C.tParts(6)=C.tParts(6)-toc;
+        [W.Etrj.mu,W.Etrj.CovDiag0,W.Etrj.CovDiag1,W.Etrj.logDetLambda,Stt2,Sttau2,dmu2,dmx2]=...
+            VB5_VBEtrj_iteration2(...
+            dat.x,dat.T,dat.one,dat.end,dat.dim,...
+            W.Es.pst,W.Epar.lambda_inv,W.Epar.alpha,W.Etrj.one,W.Etrj.end,tau);
+        C.tParts(6)=C.tParts(6)+toc;
+        C.nParts(6)=C.nParts(6)+1;
+
     elseif(isfield(W,'Etrj')) % construct precomputed Etrj-derived fields
         C.tParts(3)=C.tParts(3)-toc;
         Stt2=zeros(size(dat.x,1),1);
