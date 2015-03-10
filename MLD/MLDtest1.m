@@ -22,7 +22,11 @@ numTrj=10;
 dim=1;
 
 [x,s,y]=VB5_diffusiveHMM_blur_detach(p0,A,pE,Ddt,R,tau,sigErr,dim,T,numTrj);
-%x={x};y={y};
+
+if(~iscell(x))
+    x={x};
+    y={y};
+end
 
 % add explicit error estimates
 xv=cell(size(x));
