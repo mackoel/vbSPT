@@ -1,5 +1,33 @@
 function [logL,trj]=ML1_logLlambda(dat,lambda,tau,R)
-
+% log likelihood of diffusion constant for trj with localization errors
+% [logL,trj]=ML1_logLlambda(dat,lambda,tau,R)
+%
+% input:
+% dat       : trajectory data struct from ML1_preprocess
+% lambda    : step vaiance lambda=2*D*dt
+% tau       : exposure average time. 
+% R         : Berglund's blur factor. 
+%             For illumination with illumination fraction
+%             tExposure/tSample, we have 
+%             tau = tExposure/tSample/2 for constant
+%             R = tExposure/tSample/6
+%
+% output:
+% logL      : log likelihood of diffusion constant, with hidden positions
+%             integrated out
+% trj       : struct with information about the hidden trajectory.
+% trj.mu    : expected positions mu(t) = <y(t)>
+% trj.one   : sub-trajectory start indices
+% trj.end   : sub-trajectory end indices
+%             Sub-trajectory i stretches from
+%             trj.mu(trj.one(i):trj.end(i)), and has length T(i)+1, if
+%             there were T(i) measured positions in trj i.
+% trj.CovDiag0 : diagonal covariance matrix entries, 
+%                trj.CovDiag0(t) = <(y(t)-<y(t)>)^2>
+% trj.CovDiag1 : first off-diagonal covariance matrix entries, 
+%                trj.CovDiag1(t) = <(y(t)-<y(t)>)*(y(t+1)-<y(t+1)>)>
+% Note that more long-range correlations also exist, but are not computed.
+%             
 %% start of actual code
 %% preprocess the data and insert default aggregation
 beta=tau*(1-tau)-R;
@@ -70,15 +98,8 @@ end
 logL=-sum(dat.T)/2*log(lambda)-0.5*sum(log(dat.v(:,1)+BL))-0.5*logDetLambda+dmunux2;
 
 % collect averages for hidden trajectory
-%W.Etrj.mu=Lambda\nu;
-%W.Etrj.CovDiag0=full(diag(Sigma,0));
-%W.Etrj.CovDiag1=full(diag(Sigma,1)+diag(Sigma,-1))/2; % possible better to average of rounding errors?
 trj.mu=mu;
 trj.CovDiag0=CovDiag0;
-trj.CovDiag1=CovDiag1; % possible better to average of rounding errors?
-
-%clear mu Covdiag1 CovDiag0 mu_nt Covdiag1_nt CovDiag0_nt Sigma_nt nu_nt Ldiag_nt
-%clear nu Ldiag Lambda_nt MU1 MUT X1 XT T Ttot Mgamma_t Malpha_t
-%clear Ldiag Sigma logDetLambda
+trj.CovDiag1=CovDiag1;
 
 
