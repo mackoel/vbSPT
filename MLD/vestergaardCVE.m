@@ -1,7 +1,7 @@
-% diffusionCVEestimator -- Covariancebased estimation of diffusion constant
-% from trajectories with motional blur and localization errors.
+% vestergaardCVE -- Covariance-based estimation of diffusion constant
+% with motional blur and localization errors, by Vestergaard et al [1].
 %
-% [Dvbf,S2vbf]=diffusionCVEestimator(dat,dt,R,sigma2)
+% [Dvbf,S2vbf]=vestergaardCVE(dat,dt,R,sigma2)
 %
 % Computes the covariance based diffusion constant estimators by
 % Vestergaard, Blainey, and Flyvbjerg (VBF) [1] on a multi-trajectory data
@@ -34,7 +34,7 @@
 % Martin Lindén, bmelinden@gmail.com, 2015-04-01
 
 % start of actual code
-function [Dvbf,S2vbf]=diffusionCVEestimator(dat,dt,R,sigma2)
+function [Dvbf,S2vbf]=vestergaardCVE(dat,dt,R,sigma2)
 
 % decide what to estimate
 if( exist('sigma2','var') && ~isempty(sigma2))
@@ -59,7 +59,7 @@ for k=1:length(ind3)
     DXtp1mean=DXtp1mean+sum(sum(DX(1:end-1,:).*DX(2:end,:)))/nDXp1;
     
 end
-% alternative
+% more elegant (?) alternative
 dx=diff(dat.x(:,dat.xInd),1,1);
 dx(dat.end,:)=0;
 
