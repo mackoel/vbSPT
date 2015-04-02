@@ -9,12 +9,14 @@ This code makes use of the routine triSym_d1Inv_trjWise.mex (source
 code in HMMcore) to compute the determinant and some elements of the
 inverse of a symmetric tridiagonal matrix.
 
-vestergaardCVE.m - Covariance-based estimator of diffusion constant and 
-localization errors (the latter assumed constant), by Vestergaard, Blainey, 
-and Flyvbjerg. Consistency checks and confidence interval not (yet) 
+vestergaardCVE.m - Covariance-based estimator of diffusion constant
+and (average) localization errors, by Vestergaard, Blainey, and
+Flyvbjerg. Consistency checks and confidence interval not (yet)
 implemented.
 
-ML1_preprocess_mixed_columns : data preprocessor for ML1_logLlambda and 
-vestergaardCVE.
+lsqMSD.m - an msd-based estimator (note that the CVE estimator
+generally has better performance).
 
-Martin Lindén, bmelinden@gmail.com, 2015-04-01
+ML1_preprocess_mixed_columns : data preprocessor.
+
+Martin Lindén, bmelinden@gmail.com, 2015-04-02

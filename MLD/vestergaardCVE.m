@@ -30,6 +30,7 @@
 % checks for diffusive motion, which are currently not implemented.
 %
 % 1. Vestergaard, Blainey and Flyvbjerg, PRE 89, 022726 (2014)
+%    http://link.aps.org/doi/10.1103/PhysRevE.89.022726
 % 
 % Martin Lindén, bmelinden@gmail.com, 2015-04-01
 
@@ -44,7 +45,8 @@ else
 end
 
 % compute step length statistics
-ind3=find(dat.T>=3); % at least two steps are needed to estimate
+T=dat.end-dat.one+1; % do not assume that dat.T is consistent 
+ind3=find(T>=3); % at least two steps are needed to estimate
 nDX2 =dat.dim*sum(dat.T(ind3)-1); % total number of steps
 nDXp1=dat.dim*sum(dat.T(ind3)-2); % total number of step pairs
 
@@ -53,20 +55,21 @@ DXtp1mean=0;    % < dx(t)*dx(t+1) >
 
 for k=1:length(ind3)
     rows=dat.one(ind3(k)):dat.end(ind3(k));
-    DX=diff(dat.x(rows,dat.xInd),1,1); % step lengths
+    DX=diff(dat.x(rows,:),1,1); % step lengths
     
     DX2mean=DX2mean+sum(sum(DX.^2))/nDX2;
     DXtp1mean=DXtp1mean+sum(sum(DX(1:end-1,:).*DX(2:end,:)))/nDXp1;
     
 end
-% more elegant (?) alternative
-dx=diff(dat.x(:,dat.xInd),1,1);
-dx(dat.end,:)=0;
-
-dx2mean=sum(sum(dx.^2))/nDX2; % dx(dat.end,:) do not contribute to the sum
-dxtp1mean=sum(sum(dx(1:end-1,:).*dx(2:end,:)))/nDXp1; 
+% more elegant (?) alternative, but works only if end,one and x are
+% consistent (and not if end,one have been manipulated to do e.g.
+% bootstrapping).
+%dx=diff(dat.x,1,1);
+%dx(dat.end,:)=0;
+%dx2mean=sum(sum(dx.^2))/nDX2; % dx(dat.end,:) do not contribute to the sum
+%dxtp1mean=sum(sum(dx(1:end-1,:).*dx(2:end,:)))/nDXp1; 
 % check that the numbers are the same!
-keyboard
+%keyboard
 
 if (sigma2IsKnown)  % then estimate only D 
     Dvbf = (DX2mean-2*sigma2)/(2*(1-2*R)*dt);
